@@ -13,19 +13,19 @@ Native shell is for builds, tests, and other command execution, not default file
 """
 
 [hooks.state.'C:\Users\rannd\.codex\hooks.json:user_prompt_submit:0:0']
-trusted_hash = "sha256:c2cf1d9d67446b4a5318108b74be7c8df9bf3558cc4150d6eace39caada90df7"
+trusted_hash = "sha256:a31668373daa65edf1c432ca3578e3f85f43e5e12274a5ad263b7f8bd8b511aa"
 
 [hooks.state.'C:\Users\rannd\.codex\hooks.json:pre_tool_use:0:0']
-trusted_hash = "sha256:1987c7412c80bfcfd44aaa533f8f66ac9fe5a9cfa5c8858cb4b0651ab0fbb8ab"
+trusted_hash = "sha256:39627e2670d7dfa7ab0e994c122fbeab59af61120f80c2868990459a2550b323"
 
 [hooks.state.'C:\Users\rannd\.codex\hooks.json:post_tool_use:0:0']
-trusted_hash = "sha256:5949fec73ee61decc4bd2df74225a5b89b06384aa75d60a0eab7a25f5601f2a9"
+trusted_hash = "sha256:e1b694e60b894ba0f12e09fcf1fe1933a7b1fb0b3841ddd2d47c0ed71239694e"
 
 [hooks.state.'C:\Users\rannd\.codex\hooks.json:stop:0:0']
-trusted_hash = "sha256:c8a07daeeeb06ee5ba141cbb6e1246e2717da334f69c37fb0838acc79d8de7ea"
+trusted_hash = "sha256:8145ae9196b0a04e5e2f813c849c80b8e82f11a0457a7df3a9dad67cd9a2889a"
 
 [hooks.state.'C:\Users\rannd\.codex\hooks.json:subagent_stop:0:0']
-trusted_hash = "sha256:b91ce6efbb4c8eb66ef95e31cfdb708ba88a18354f1fa178302b9ba56003e591"
+trusted_hash = "sha256:bcb5b8d9b0ab6d51a5705c02b665f22b68de2031ae020c47215e4c67666378ca"
 
 [features]
 fast_mode = false

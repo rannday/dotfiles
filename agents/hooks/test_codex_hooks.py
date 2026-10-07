@@ -50,26 +50,25 @@ class CodexHooksTests(unittest.TestCase):
         tool_input={'relative_path': 'docs.txt'}, tool_response=response))
     self.assertFalse(list(Path(self.temp.name).rglob('serena-read-failures.json')))
 
-  def test_installed_adapter_imports_shared_hooks_before_stale_local_copies(self):
+  def test_installed_adapter_imports_colocated_hooks_before_stale_copies(self):
     home = Path(self.temp.name) / 'home with spaces'
-    adapter_dir = home / '.codex/hooks/bin'
+    stale_dir = home / '.codex/hooks/bin'
     shared_dir = home / '.agents/hooks/bin'
-    adapter_dir.mkdir(parents=True)
+    stale_dir.mkdir(parents=True)
     shared_dir.mkdir(parents=True)
     source = Path(__file__).parent
-    shared_source = Path(__file__).resolve().parents[3] / 'agents/hooks'
-    shutil.copyfile(source / 'codex_hooks.py', adapter_dir / 'codex_hooks.py')
+    shutil.copyfile(source / 'codex_hooks.py', shared_dir / 'codex_hooks.py')
     for name in ('tool_gate.py', 'turn_end.py'):
-      shutil.copyfile(shared_source / name, shared_dir / name)
-      (adapter_dir / name).write_text('raise RuntimeError("stale local hook")', encoding='utf-8')
+      shutil.copyfile(source / name, shared_dir / name)
+      (stale_dir / name).write_text('raise RuntimeError("stale local hook")', encoding='utf-8')
     result = subprocess.run([
       sys.executable, '-B', '-c',
       'import pathlib,runpy,sys; '
-      'sys.path.insert(0,sys.argv[1]); '
+      'sys.path.insert(0,sys.argv[3]); '
       'loaded=runpy.run_path(str(pathlib.Path(sys.argv[1])/"codex_hooks.py")); '
       'assert all(pathlib.Path(loaded[name].__file__).parent == pathlib.Path(sys.argv[2]) '
       'for name in ("tool_gate", "turn_end"))',
-      str(adapter_dir), str(shared_dir),
+      str(shared_dir), str(shared_dir), str(stale_dir),
     ], capture_output=True, text=True, check=False)
     self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -930,7 +929,7 @@ class CodexHooksTests(unittest.TestCase):
           tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
 
   def test_desktop_commander_secret_guard_is_wired_on_both_platforms(self):
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2] / 'confs/codex'
     for platform in ('windows', 'linux'):
       config = json.loads((root / (platform + '.hooks.json')).read_text(encoding='utf-8'))
       guards = [entry for entry in config['hooks']['PreToolUse']
@@ -993,7 +992,7 @@ class CodexHooksTests(unittest.TestCase):
     self.assertEqual(interact('Write-Output *', 11).get('decision'), 'deny')
 
   def test_desktop_process_lifecycle_post_hooks_are_wired(self):
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2] / 'confs/codex'
     for platform in ('windows', 'linux'):
       config = json.loads((root / (platform + '.hooks.json')).read_text(encoding='utf-8'))
       matcher = config['hooks']['PostToolUse'][0]['matcher']

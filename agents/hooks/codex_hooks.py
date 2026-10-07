@@ -16,10 +16,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-if Path(__file__).parent.name == 'bin':
-  sys.path.insert(0, str(Path(__file__).resolve().parents[3] / '.agents/hooks/bin'))
-else:
-  sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'agents/hooks'))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import tool_gate
 import turn_end

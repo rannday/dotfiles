@@ -22,7 +22,6 @@ module_codex() {
   RULES_DIR=$CODEX_DIR/rules
   CREW_DIR=$CODEX_DIR/agents
   HOOK_JSON=$CODEX_DIR/linux.hooks.json
-  CODEX_HOOK=$CODEX_DIR/hooks/codex_hooks.py
   SHARED_HOOKS=$CONF_DIR/../agents/hooks
   CODEX_HOME=$HOME/.codex
   SHARED_HOOK_TARGET=$HOME/.agents/hooks/bin
@@ -35,8 +34,7 @@ module_codex() {
   require_dir "$RULES_DIR"
   require_dir "$CREW_DIR"
   require_file "$HOOK_JSON"
-  require_file "$CODEX_HOOK"
-  for hook_name in tool_gate.py turn_end.py; do
+  for hook_name in tool_gate.py turn_end.py codex_hooks.py; do
     require_file "$SHARED_HOOKS/$hook_name"
   done
 
@@ -48,10 +46,9 @@ module_codex() {
   install_user_file "$CONFIG_FILE" "$CODEX_HOME/config.toml" 0644
   install_user_file "$SERENA_CONTEXT" "$CODEX_HOME/serena-context.yml" 0644
   install_user_file "$HOOK_JSON" "$CODEX_HOME/hooks.json" 0644
-  for hook_name in tool_gate.py turn_end.py; do
+  for hook_name in tool_gate.py turn_end.py codex_hooks.py; do
     install_user_file "$SHARED_HOOKS/$hook_name" "$SHARED_HOOK_TARGET/$hook_name" 0644
   done
-  install_user_file "$CODEX_HOOK" "$CODEX_HOME/hooks/bin/codex_hooks.py" 0644
   for agent_file in "$CREW_DIR"/*.toml; do
     require_file "$agent_file"
     install_user_file "$agent_file" "$CODEX_HOME/agents/$(basename -- "$agent_file")" 0644

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.codex/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.codex/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
+            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
             "timeout": 120
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.codex/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.codex/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
+            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
             "timeout": 120
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.codex/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.codex/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
+            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
             "timeout": 10
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.codex/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.codex/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
+            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
             "timeout": 1000
           }
         ]
@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.codex/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.codex/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
+            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
             "timeout": 750
           }
         ]

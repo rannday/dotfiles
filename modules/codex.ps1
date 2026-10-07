@@ -38,7 +38,6 @@ function Invoke-codex
   $rulesSource = Join-Path $codexSource 'rules'
   $crewSource = Join-Path $codexSource 'agents'
   $hookJson = Join-Path $codexSource 'windows.hooks.json'
-  $codexHook = Join-Path $codexSource 'hooks\codex_hooks.py'
   $sharedHooks = Join-Path (Split-Path $script:CONF_DIR -Parent) 'agents\hooks'
 
   $codexTarget = Join-Path $HOME '.codex'
@@ -52,8 +51,7 @@ function Invoke-codex
   Assert-Directory $rulesSource
   Assert-Directory $crewSource
   Assert-File $hookJson
-  Assert-File $codexHook
-  foreach ($name in @('tool_gate.py', 'turn_end.py'))
+  foreach ($name in @('tool_gate.py', 'turn_end.py', 'codex_hooks.py'))
   {
     Assert-File (Join-Path $sharedHooks $name)
   }
@@ -66,11 +64,10 @@ function Invoke-codex
   Install-UserFile -Source $configSource -Destination (Join-Path $codexTarget 'config.toml')
   Install-UserFile -Source $serenaContext -Destination (Join-Path $codexTarget 'serena-context.yml')
   Install-UserFile -Source $hookJson -Destination (Join-Path $codexTarget 'hooks.json')
-  foreach ($name in @('tool_gate.py', 'turn_end.py'))
+  foreach ($name in @('tool_gate.py', 'turn_end.py', 'codex_hooks.py'))
   {
     Install-UserFile -Source (Join-Path $sharedHooks $name) -Destination (Join-Path $sharedTarget $name)
   }
-  Install-UserFile -Source $codexHook -Destination (Join-Path $codexTarget 'hooks\bin\codex_hooks.py')
   Get-ChildItem -LiteralPath $crewSource -Filter '*.toml' -File | ForEach-Object {
     Install-UserFile -Source $_.FullName -Destination (Join-Path $codexTarget "agents\$($_.Name)")
   }

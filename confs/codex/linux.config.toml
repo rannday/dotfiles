@@ -13,19 +13,19 @@ Native shell is for builds, tests, and other command execution, not default file
 """
 
 [hooks.state.'/home/rann/.codex/hooks.json:user_prompt_submit:0:0']
-trusted_hash = "sha256:77afbaff54c9edc38b1f59fe4b8f2e542a722ea1679fd4d2d0643a99103e83b4"
+trusted_hash = "sha256:82808d702868c4bf07e1949271563bc5997d06147d9e7d7a456044352ed93818"
 
 [hooks.state.'/home/rann/.codex/hooks.json:pre_tool_use:0:0']
-trusted_hash = "sha256:63f81e6367b2091bcc412c8add9b19c77a12495cdf5a81528b9cbacd46dc128d"
+trusted_hash = "sha256:32c25b808bb86ebe4090a7e8d7f044e764164557f067da8cb8f76fe2b7eb0e36"
 
 [hooks.state.'/home/rann/.codex/hooks.json:post_tool_use:0:0']
-trusted_hash = "sha256:35d3fdd9438120ca85cc63285aa53e156071e90aa2463c8b7c054836984b3823"
+trusted_hash = "sha256:f62225f79bb2a1f0a7717194c58cc6b4e1a8ef926079cd914511fe8093ed2f41"
 
 [hooks.state.'/home/rann/.codex/hooks.json:stop:0:0']
-trusted_hash = "sha256:f66e4d043f30a134377ca9a62eac2a9e92d737141b698e50ec8f3363eb165ee5"
+trusted_hash = "sha256:d07932911e1e812828daef9ecd30b9fb2aef9d1700427901ef074642df9b2ce5"
 
 [hooks.state.'/home/rann/.codex/hooks.json:subagent_stop:0:0']
-trusted_hash = "sha256:50575275ea12e5c85fb96ccee4dbf48a62bf24abece48abeeaf223418de81a6d"
+trusted_hash = "sha256:e059d7a23ceae2de853ced4349becb8001907bcf1e5f93a06173d218b7e58239"
 
 [features]
 fast_mode = false

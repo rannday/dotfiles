@@ -18,7 +18,7 @@ Run `codex execpolicy check` against the tracked Windows rule set before scoped 
 
 ## Hooks and finish
 
-Shared source: `agents/hooks/`; install to `~/.agents/hooks/bin`. Codex source and tests: `confs/codex/hooks/`; install the adapter to `~/.codex/hooks/bin`. Review/trust `~/.codex/hooks.json` through `/hooks`.
+Hook source and tests: `agents/hooks/`; install shared scripts and the Codex adapter to `~/.agents/hooks/bin`. Review/trust `~/.codex/hooks.json` through `/hooks`.
 
 Prompt submit snapshots dirty files; first matching child tool supplies a missing baseline. One stop runner checks Go diagnostics, formatting, targeted tests, then a parent-only bounded Codex review. A format rewrite blocks; retain it and inspect it. Module changes test `./...`; other Go changes test/vet touched packages and run gopls checks. Other stacks require their own task-relevant checks.
 

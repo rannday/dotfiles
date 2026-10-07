@@ -15,7 +15,7 @@ This repo is personal dotfiles. Keep changes narrow.
 - `confs/grok/` is the Grok home source (`~/.grok`).
 - `confs/codex/` is the Codex home source (`~/.codex`), including `rules/`.
 - `agents/hooks/` holds shared Python hook source and tests. Grok and Codex modules install shared scripts to `~/.agents/hooks/bin`.
-- `confs/codex/hooks/` holds the Codex adapter and tests. The adapter installs to `~/.codex/hooks/bin`.
+- `agents/hooks/` also holds the Codex adapter and tests; the adapter installs alongside shared scripts.
 - Do not treat a repo `.grok/` or `.codex/` directory as source. Install does not write those.
 
 ## Agent work
