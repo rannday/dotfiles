@@ -61,6 +61,9 @@ writable_roots = [
   'C:\Users\rannd\go\pkg\mod',
 ]
 
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+
 [mcp_servers.desktop-commander]
 default_tools_approval_mode = "prompt"
 command = "npx"

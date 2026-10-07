@@ -45,6 +45,9 @@ writable_roots = [
   "/home/rann/go/pkg/mod",
 ]
 
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+
 [mcp_servers.github]
 default_tools_approval_mode = "prompt"
 url = "https://api.githubcopilot.com/mcp/"
