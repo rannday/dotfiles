@@ -134,7 +134,6 @@ default_tools_approval_mode = "prompt"
 command = "gk"
 args = ["mcp"]
 disabled_tools = [
-  "app_tool_box",
   "app_update_user_preferences",
   "git_commit_composer",
   "git_resolve",
