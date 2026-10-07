@@ -161,9 +161,7 @@ def skip_gate(mode: str, event: Event) -> bool:
     return False
   # Stop also fires at session end. SubagentStop still gates.
   hook = os.environ.get('GROK_HOOK_EVENT', '')
-  if hook == 'stop' and event.reason not in ('', 'end_turn'):
-    return True
-  return False
+  return hook == 'stop' and event.reason not in ('', 'end_turn')
 
 
 def parse_event(raw: dict) -> Event:

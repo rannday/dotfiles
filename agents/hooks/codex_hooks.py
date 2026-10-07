@@ -183,9 +183,8 @@ def tool_policy(event: dict) -> dict:
   tool = event.get('toolName')
   if name == 'PreToolUse' and secret_paths(event):
     return {'decision': 'deny', 'reason': 'Protected .env or PEM path. Use a redacted example file.'}
-  if name == 'PreToolUse' and tool == 'run_terminal_command':
-    if recursive_windows_delete(tool_gate.command_of(event)):
-      return {'decision': 'deny', 'reason': 'Recursive Windows deletion is denied by the permission policy.'}
+  if name == 'PreToolUse' and tool == 'run_terminal_command' and recursive_windows_delete(tool_gate.command_of(event)):
+    return {'decision': 'deny', 'reason': 'Recursive Windows deletion is denied by the permission policy.'}
   if name == 'PostToolUse' and not successful(event):
     return {}
   if name == 'PostToolUse' and re.match(r'^mcp__desktop[-_]commander__', str(event.get('tool_name') or '')):
@@ -267,18 +266,16 @@ def recursive_windows_delete(command: str, depth: int = 0) -> bool:
         else:
           switch, _, value = arg.partition(':')
           # Recognize unambiguous recurse prefixes from -re onward.
-          if len(switch) >= 3 and '-recurse'.startswith(switch):
-            if value not in ('$false', 'false'):
-              return True
+          if len(switch) >= 3 and '-recurse'.startswith(switch) and value not in ('$false', 'false'):
+            return True
     if executable in ('del', 'rmdir', 'rd') and any(
       arg == '/s' or arg.startswith('/s/') for arg in lowered
     ):
       return True
     if executable in ('foreach-object', '%'):
       block = segment[segment.find(tokens[0]) + len(tokens[0]):].strip()
-      if block.startswith('{') and block.endswith('}'):
-        if recursive_windows_delete(block[1:-1], depth + 1):
-          return True
+      if block.startswith('{') and block.endswith('}') and recursive_windows_delete(block[1:-1], depth + 1):
+        return True
     switches = {
       'powershell': ('-command', '-c'), 'pwsh': ('-command', '-c'),
       'cmd': ('/c', '/k'), 'bash': ('-c', '-lc'),
@@ -333,16 +330,16 @@ def ansi_c_text(text: str) -> str:
   """Decode Bash's quoted filename escapes without evaluating shell text."""
   common = {'a': '\a', 'b': '\b', 'e': '\x1b', 'E': '\x1b', 'f': '\f',
     'n': '\n', 'r': '\r', 't': '\t', 'v': '\v', '\\': '\\', "'": "'", '"': '"', '?': '?'}
-  def decode(match: re.Match) -> str:
-    escape = match[0][1:]
+  def decode(match: re.Match[str]) -> str:
+    escape = match.group()[1:]
     if escape[0] in '01234567':
       return chr(int(escape, 8) % 256)
     if escape[0] in 'xuU' and len(escape) > 1:
       value = int(escape[1:], 16)
-      return chr(value) if value <= 0x10ffff else match[0]
+      return chr(value) if value <= 0x10ffff else match.group()
     if escape.startswith('c') and len(escape) == 2:
       return chr(127 if escape[1] == '?' else ord(escape[1]) & 31)
-    return common.get(escape, match[0])
+    return common.get(escape, match.group())
   return re.sub(r'\\(?:[0-7]{1,3}|x[0-9a-fA-F]{1,2}|u[0-9a-fA-F]{1,4}|U[0-9a-fA-F]{1,8}|c.|.)',
     decode, text, flags=re.DOTALL).split('\0', 1)[0]
 
@@ -495,17 +492,17 @@ def shell_patterns_overlap(left: str, right: str) -> bool:
       return '?'  # Unknown locale classes cannot prove a secret unreachable.
     return re.sub(r'\[:([a-z]+):\]', lambda part: classes[part[1]], token)
   left = re.sub(r'\[(?:[!^])?(?:\[:[a-z]+:\]|[^\]])+\]', posix_class, left)
-  left = re.findall(r'\[(?:[!^])?\]?[^\]]*\]|.', left)
-  left = ['[!' + token[2:] if token.startswith('[^') else token for token in left]
+  tokens = re.findall(r'\[(?:[!^])?\]?[^\]]*\]|.', left)
+  tokens = ['[!' + token[2:] if token.startswith('[^') else token for token in tokens]
   pending, seen = [(0, 0)], set()
   while pending:
     first, second = pending.pop()
     if (first, second) in seen:
       continue
     seen.add((first, second))
-    if first == len(left) and second == len(right):
+    if first == len(tokens) and second == len(right):
       return True
-    a = left[first] if first < len(left) else ''
+    a = tokens[first] if first < len(tokens) else ''
     b = right[second] if second < len(right) else ''
     if a == '*':
       pending.append((first + 1, second))

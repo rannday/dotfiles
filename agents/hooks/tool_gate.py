@@ -215,8 +215,7 @@ def pairs_of_query(query: str) -> set[tuple[str, str]]:
 def repo_pair(owner: str, repo: str) -> tuple[str, str] | None:
   owner = owner.strip().lower()
   repo = repo.strip().lower()
-  if repo.endswith('.git'):
-    repo = repo[:-4]
+  repo = repo.removesuffix('.git')
   if not owner or not repo or '/' in owner or '/' in repo:
     return None
   return owner, repo
@@ -318,9 +317,7 @@ def touches_go(tool: str, event: dict) -> bool:
     if is_single_non_go_file(path):
       return False
     include = text_of(tool_input.get('paths_include_glob'))
-    if include and not glob_matches_go(include):
-      return False
-    return True
+    return not (include and not glob_matches_go(include))
   return is_go_path(file_path_of(event))
 
 

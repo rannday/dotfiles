@@ -1,12 +1,12 @@
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
-from types import SimpleNamespace
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import codex_hooks
@@ -63,11 +63,11 @@ class CodexHooksTests(unittest.TestCase):
       (stale_dir / name).write_text('raise RuntimeError("stale local hook")', encoding='utf-8')
     result = subprocess.run([
       sys.executable, '-B', '-c',
-      'import pathlib,runpy,sys; '
+      ('import pathlib,runpy,sys; '
       'sys.path.insert(0,sys.argv[3]); '
       'loaded=runpy.run_path(str(pathlib.Path(sys.argv[1])/"codex_hooks.py")); '
       'assert all(pathlib.Path(loaded[name].__file__).parent == pathlib.Path(sys.argv[2]) '
-      'for name in ("tool_gate", "turn_end"))',
+      'for name in ("tool_gate", "turn_end"))'),
       str(shared_dir), str(shared_dir), str(stale_dir),
     ], capture_output=True, text=True, check=False)
     self.assertEqual(result.returncode, 0, result.stderr)
@@ -136,9 +136,9 @@ class CodexHooksTests(unittest.TestCase):
 
   def test_wsl_nested_windows_deletion_keeps_guard(self):
     commands = (
-      'wsl.exe --distribution Debian --cd /tmp --exec '
+      ('wsl.exe --distribution Debian --cd /tmp --exec '
         '/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe '
-        '-Command "Remove-Item build -Recurse"',
+        '-Command "Remove-Item build -Recurse"'),
       'wsl -d Debian --cd /tmp "pwsh -Command \'Remove-Item build -Recurse\'"',
       'wsl.exe -d Debian -e cmd.exe /c "rd build /s"',
     )
@@ -1054,7 +1054,9 @@ class CodexHooksTests(unittest.TestCase):
         for _ in range(2):
           result = codex_hooks.remember_block(raw, block)
           self.assertEqual(result, {'decision': 'block', 'reason': reason})
-      self.assertFalse(codex_hooks.remember_block(raw, block)['continue'])
+      final_block = {'decision': 'block', 'reason': 'a.py:L2: Fix another issue.',
+        '_failure_stage': 'review'}
+      self.assertFalse(codex_hooks.remember_block(raw, final_block)['continue'])
 
   def test_retry_budget_resets_for_different_test_failures(self):
     raw = codex_hooks.normalize(event('Stop'))
