@@ -1,0 +1,20 @@
+{
+  "colorScheme": "tokyo night",
+  "trustedWorkspaces": [
+    "/home/rannd/Projects/dotfiles",
+    "/home/rannd/Projects/static-site",
+    "/home/rannd/Projects/go-template",
+    "/home/rannd/Projects/go-env",
+    "/home/rannd/Projects/go-config",
+    "/home/rannd/Projects/go-log",
+    "/home/rannd/Projects/go-build-bin",
+    "/home/rannd/Projects/bitburner",
+    "/home/rannd/Projects/bbrs",
+    "/home/rannd/Projects/oaklog",
+    "/home/rannd/Projects/blockforge",
+    "/home/rannd/Projects/blockforge-manifest",
+    "/home/rannd/Projects/work/ssh-config",
+    "/home/rannd/Projects/work/cog",
+    "/home/rannd/Projects/varda/varda-modpack"
+  ]
+}

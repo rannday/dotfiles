@@ -1,0 +1,22 @@
+[user]
+  name = Rann Day
+  email = 5001592+rannday@users.noreply.github.com
+  signingkey = ~/.ssh/id_ed25519_github.pub
+
+[color]
+  ui = true
+
+[gpg]
+  format = ssh
+
+[commit]
+  gpgsign = true
+
+[includeIf "gitdir:~/Projects/"]
+    path = ~/.gitconfig-projects
+
+[includeIf "gitdir:~/Projects/work/"]
+  path = ~/.gitconfig-work
+
+[includeIf "gitdir:~/Projects/varda/"]
+  path = ~/.gitconfig-varda

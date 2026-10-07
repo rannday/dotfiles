@@ -1,0 +1,34 @@
+# ============================================================
+# NETWORK ACCESS
+# ============================================================
+# Prompt for explicit outbound network tools.
+
+prefix_rule(
+    pattern = [["curl", "wget", "Invoke-WebRequest", "iwr", "Invoke-RestMethod", "irm"]],
+    decision = "prompt",
+    justification = "Outbound network access requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["ssh"],
+    decision = "prompt",
+    justification = "SSH access requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["scp"],
+    decision = "prompt",
+    justification = "SCP file transfer requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["sftp"],
+    decision = "prompt",
+    justification = "SFTP file transfer requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["rsync"],
+    decision = "prompt",
+    justification = "Rsync file transfer requires explicit approval.",
+)

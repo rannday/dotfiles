@@ -1,0 +1,205 @@
+# ============================================================
+# GITHUB CLI COMMANDS
+# ============================================================
+# gh generally requires network access. Allow low-risk reads if you are
+# comfortable with GitHub API access; prompt for writes, auth, workflow,
+# and repository mutation.
+
+# ============================================================
+# SAFE READ-ONLY OPERATIONS
+# ============================================================
+
+prefix_rule(
+    pattern = ["gh", "--version"],
+    decision = "allow",
+    justification = "Reading the GitHub CLI version is safe.",
+)
+
+prefix_rule(
+    pattern = ["gh", "version"],
+    decision = "allow",
+    justification = "Reading the GitHub CLI version is safe.",
+)
+
+prefix_rule(
+    pattern = ["gh", "status"],
+    decision = "prompt",
+    justification = "Reading GitHub account status requires network access.",
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", "view"],
+    decision = "prompt",
+    justification = "Reading GitHub repository metadata requires network access.",
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", "list"],
+    decision = "prompt",
+    justification = "Listing GitHub issues requires network access.",
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", "view"],
+    decision = "prompt",
+    justification = "Reading GitHub issues requires network access.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "list"],
+    decision = "prompt",
+    justification = "Listing GitHub pull requests requires network access.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "view"],
+    decision = "prompt",
+    justification = "Reading GitHub pull requests requires network access.",
+)
+
+prefix_rule(
+    pattern = ["gh", "run", "list"],
+    decision = "prompt",
+    justification = "Listing GitHub Actions runs requires network access.",
+)
+
+prefix_rule(
+    pattern = ["gh", "run", "view"],
+    decision = "prompt",
+    justification = "Reading GitHub Actions run details requires network access.",
+)
+
+
+# ============================================================
+# AUTH / CONFIG
+# ============================================================
+
+prefix_rule(
+    pattern = ["gh", "auth"],
+    decision = "prompt",
+    justification = "GitHub authentication changes require review.",
+)
+
+prefix_rule(
+    pattern = ["gh", "config"],
+    decision = "prompt",
+    justification = "GitHub CLI configuration changes require review.",
+)
+
+
+# ============================================================
+# ISSUE / PR MUTATION
+# ============================================================
+
+prefix_rule(
+    pattern = ["gh", "issue", "create"],
+    decision = "prompt",
+    justification = "Creating GitHub issues requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", "edit"],
+    decision = "prompt",
+    justification = "Editing GitHub issues requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", "close"],
+    decision = "prompt",
+    justification = "Closing GitHub issues requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", "reopen"],
+    decision = "prompt",
+    justification = "Reopening GitHub issues requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "create"],
+    decision = "prompt",
+    justification = "Creating GitHub pull requests requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "edit"],
+    decision = "prompt",
+    justification = "Editing GitHub pull requests requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "prompt",
+    justification = "Merging GitHub pull requests requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "close"],
+    decision = "prompt",
+    justification = "Closing GitHub pull requests requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "ready"],
+    decision = "prompt",
+    justification = "Marking a pull request ready changes GitHub state.",
+)
+
+
+# ============================================================
+# REPO / RELEASE / WORKFLOW MUTATION
+# ============================================================
+
+prefix_rule(
+    pattern = ["gh", "repo", "create"],
+    decision = "prompt",
+    justification = "Creating GitHub repositories requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", "delete"],
+    decision = "prompt",
+    justification = "Deleting GitHub repositories requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", "fork"],
+    decision = "prompt",
+    justification = "Forking repositories changes GitHub state.",
+)
+
+prefix_rule(
+    pattern = ["gh", "release", "create"],
+    decision = "prompt",
+    justification = "Creating GitHub releases requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "release", "delete"],
+    decision = "prompt",
+    justification = "Deleting GitHub releases requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "workflow", "run"],
+    decision = "prompt",
+    justification = "Triggering GitHub Actions workflows requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "run", "rerun"],
+    decision = "prompt",
+    justification = "Rerunning GitHub Actions workflows requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["gh", "api"],
+    decision = "prompt",
+    justification = "Raw GitHub API calls may read or mutate remote state.",
+)
+# Grok's broad prompt takes precedence over narrower allows below.
+prefix_rule(
+    pattern = ["gh"],
+    decision = "prompt",
+    justification = "GitHub CLI commands require review; prefer the GitHub MCP server.",
+)

@@ -1,0 +1,2 @@
+[core]
+    sshCommand = ssh -F /home/rann/.ssh/config

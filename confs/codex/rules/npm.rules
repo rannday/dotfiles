@@ -1,0 +1,166 @@
+# ============================================================
+# NODE / NPM / JS PACKAGE COMMANDS
+# ============================================================
+
+# ============================================================
+# SAFE READ-ONLY OPERATIONS
+# ============================================================
+
+prefix_rule(
+    pattern = ["node", "--version"],
+    decision = "allow",
+    justification = "Reading the Node.js version is safe.",
+)
+
+prefix_rule(
+    pattern = ["node", "-v"],
+    decision = "allow",
+    justification = "Reading the Node.js version is safe.",
+)
+
+prefix_rule(
+    pattern = ["npm", "--version"],
+    decision = "allow",
+    justification = "Reading the npm version is safe.",
+)
+
+prefix_rule(
+    pattern = ["npm", "-v"],
+    decision = "allow",
+    justification = "Reading the npm version is safe.",
+)
+
+prefix_rule(
+    pattern = ["npm", "ls"],
+    decision = "allow",
+    justification = "Listing installed dependencies is safe.",
+)
+
+prefix_rule(
+    pattern = ["npm", "outdated"],
+    decision = "prompt",
+    justification = "Checking outdated packages may access the network.",
+)
+
+
+# ============================================================
+# SCRIPT EXECUTION
+# ============================================================
+
+prefix_rule(
+    pattern = ["npm", "run"],
+    decision = "prompt",
+    justification = "npm scripts can run arbitrary project-defined commands.",
+)
+
+prefix_rule(
+    pattern = ["npm", "test"],
+    decision = "prompt",
+    justification = "npm test runs project-defined scripts.",
+)
+
+prefix_rule(
+    pattern = ["npm", "start"],
+    decision = "prompt",
+    justification = "npm start runs project-defined scripts.",
+)
+
+prefix_rule(
+    pattern = ["npm", "exec"],
+    decision = "prompt",
+    justification = "npm exec can download or execute package binaries.",
+)
+
+prefix_rule(
+    pattern = ["npx"],
+    decision = "prompt",
+    justification = "npx can download or execute package binaries.",
+)
+
+
+# ============================================================
+# DEPENDENCY / LOCKFILE MUTATION
+# ============================================================
+
+prefix_rule(
+    pattern = [["npm", "pnpm", "yarn", "bun"], "install"],
+    decision = "prompt",
+    justification = "JavaScript dependency installation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm", "yarn", "bun"], "add"],
+    decision = "prompt",
+    justification = "Adding JavaScript dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm", "yarn", "bun"], "remove"],
+    decision = "prompt",
+    justification = "Removing JavaScript dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm", "yarn", "bun"], "update"],
+    decision = "prompt",
+    justification = "Updating JavaScript dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["npm", "audit", "fix"],
+    decision = "prompt",
+    justification = "npm audit fix can change dependency versions and lockfiles.",
+)
+
+prefix_rule(
+    pattern = ["npm", "dedupe"],
+    decision = "prompt",
+    justification = "npm dedupe can modify dependency layout and lockfiles.",
+)
+
+prefix_rule(
+    pattern = ["npm", "ci"],
+    decision = "prompt",
+    justification = "npm ci removes and recreates node_modules.",
+)
+
+
+# ============================================================
+# GLOBAL INSTALLS / PUBLISHING
+# ============================================================
+
+prefix_rule(
+    pattern = ["npm", "install", "-g"],
+    decision = "prompt",
+    justification = "Global npm installs modify the user or system environment.",
+)
+
+prefix_rule(
+    pattern = ["npm", "publish"],
+    decision = "prompt",
+    justification = "Publishing packages requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["npm", "unpublish"],
+    decision = "prompt",
+    justification = "Unpublishing packages requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["npm", "login"],
+    decision = "prompt",
+    justification = "npm authentication changes require review.",
+)
+
+prefix_rule(
+    pattern = ["npm", "logout"],
+    decision = "prompt",
+    justification = "npm authentication changes require review.",
+)
+# Grok's broad prompt takes precedence over narrower allows below.
+prefix_rule(
+    pattern = ["npm"],
+    decision = "prompt",
+    justification = "npm commands require review, matching Grok.",
+)

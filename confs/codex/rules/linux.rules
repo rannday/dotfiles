@@ -1,0 +1,184 @@
+# ============================================================
+# LINUX / UNIX / MACOS COMMANDS
+# ============================================================
+
+# ============================================================
+# CATASTROPHIC DELETE PROTECTION
+# ============================================================
+
+prefix_rule(
+    pattern = ["rm", "-rf", "/"],
+    decision = "forbidden",
+    justification = "Recursive deletion of the filesystem root is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-fr", "/"],
+    decision = "forbidden",
+    justification = "Recursive deletion of the filesystem root is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-r", "/"],
+    decision = "forbidden",
+    justification = "Recursive deletion of the filesystem root is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["rm", ["-rf", "-fr"], "."],
+    decision = "forbidden",
+    justification = "Recursive deletion of the current directory is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf", "*"],
+    decision = "prompt",
+    justification = "Wildcard recursive deletion requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-rf"],
+    decision = "prompt",
+    justification = "Recursive deletion requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-fr"],
+    decision = "prompt",
+    justification = "Recursive deletion requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["rm", "-r"],
+    decision = "prompt",
+    justification = "Recursive deletion requires explicit approval.",
+)
+
+
+# ============================================================
+# PRIVILEGE / SYSTEM MUTATION
+# ============================================================
+
+prefix_rule(
+    pattern = ["sudo"],
+    decision = "forbidden",
+    justification = "Privilege escalation through sudo is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["su"],
+    decision = "prompt",
+    justification = "Switching users requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["doas"],
+    decision = "prompt",
+    justification = "Privilege escalation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["chmod", "-R"],
+    decision = "prompt",
+    justification = "Recursive permission changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["chown", "-R"],
+    decision = "prompt",
+    justification = "Recursive ownership changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["systemctl"],
+    decision = "prompt",
+    justification = "System service changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["service"],
+    decision = "prompt",
+    justification = "System service changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["mount"],
+    decision = "prompt",
+    justification = "Filesystem mount changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["umount"],
+    decision = "prompt",
+    justification = "Filesystem unmount changes require explicit approval.",
+)
+
+
+# ============================================================
+# PACKAGE MANAGERS
+# ============================================================
+
+prefix_rule(
+    pattern = [["apt", "apt-get", "dnf", "yum", "pacman", "zypper", "brew", "port"]],
+    decision = "prompt",
+    justification = "System package manager usage requires explicit approval.",
+)
+
+
+# ============================================================
+# FIREWALL / NETWORK CONFIGURATION
+# ============================================================
+
+prefix_rule(
+    pattern = ["iptables"],
+    decision = "prompt",
+    justification = "Firewall changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["ip6tables"],
+    decision = "prompt",
+    justification = "Firewall changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["nft"],
+    decision = "prompt",
+    justification = "Firewall changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["ufw"],
+    decision = "prompt",
+    justification = "Firewall changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["firewall-cmd"],
+    decision = "prompt",
+    justification = "Firewall changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["ip", "link"],
+    decision = "prompt",
+    justification = "Network interface changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["ip", "addr"],
+    decision = "prompt",
+    justification = "Network address changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["ip", "route"],
+    decision = "prompt",
+    justification = "Route table changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["route"],
+    decision = "prompt",
+    justification = "Route table changes require explicit approval.",
+)

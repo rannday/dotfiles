@@ -1,0 +1,10 @@
+export XDG_CONFIG_HOME="$HOME/.config"
+#export PATH="$HOME/.atuin/bin:$HOME/.local/bin:$PATH"
+
+# ssh-agent (reuse if running, start if not)
+if [ -z "$SSH_AUTH_SOCK" ] || ! ssh-add -l >/dev/null 2>&1; then
+  eval "$(ssh-agent -s)" >/dev/null
+  echo "$SSH_AGENT_PID" > "$HOME/.ssh-agent.pid"
+fi
+
+[[ -f "$HOME/.bashrc" ]] && . "$HOME/.bashrc"

@@ -1,0 +1,25 @@
+### My Stuff ###
+
+Host github.com-rannday
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519_github
+  IdentitiesOnly yes
+
+Host github.com-sggsa
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519_noc_github
+  IdentitiesOnly yes
+
+Host github.com-varda
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519_varda
+  IdentitiesOnly yes
+
+Host *
+  User rann
+  ServerAliveInterval 30
+  ServerAliveCountMax 5
+  HashKnownHosts yes

@@ -1,0 +1,16 @@
+[SddmGreeterTheme]
+Name=Windows XP
+Description=Windows XP SDDM theme
+Author=Rann Day
+Copyright=None
+License=DWTFYWT
+Type=sddm-theme
+Version=1.0
+Website=
+Screenshot=
+MainScript=Main.qml
+ConfigFile=theme.conf
+TranslationsDirectory=translations
+Email=rannday@protonmail.com
+Theme-Id=windows-xp
+Theme-API=2.0

@@ -1,0 +1,231 @@
+# ============================================================
+# PYTHON COMMANDS
+# ============================================================
+
+# ============================================================
+# SAFE READ-ONLY OPERATIONS
+# ============================================================
+
+prefix_rule(
+    pattern = ["python", "--version"],
+    decision = "allow",
+    justification = "Reading the Python version is safe.",
+)
+
+prefix_rule(
+    pattern = ["python3", "--version"],
+    decision = "allow",
+    justification = "Reading the Python version is safe.",
+)
+
+prefix_rule(
+    pattern = ["py", "--version"],
+    decision = "allow",
+    justification = "Reading the Python version is safe.",
+)
+
+prefix_rule(
+    pattern = ["pip", "--version"],
+    decision = "allow",
+    justification = "Reading the pip version is safe.",
+)
+
+prefix_rule(
+    pattern = ["pip3", "--version"],
+    decision = "allow",
+    justification = "Reading the pip version is safe.",
+)
+
+prefix_rule(
+    pattern = ["python", "-m", "pip", "--version"],
+    decision = "allow",
+    justification = "Reading the pip version is safe.",
+)
+
+prefix_rule(
+    pattern = ["python3", "-m", "pip", "--version"],
+    decision = "allow",
+    justification = "Reading the pip version is safe.",
+)
+
+
+# ============================================================
+# FORMATTERS / LINTERS
+# ============================================================
+
+prefix_rule(
+    pattern = ["ruff", "check"],
+    decision = "allow",
+    justification = "Running Python lint checks is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["ruff", "format"],
+    decision = "allow",
+    justification = "Formatting Python code is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["black"],
+    decision = "allow",
+    justification = "Formatting Python code is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["isort"],
+    decision = "allow",
+    justification = "Formatting Python imports is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["mypy"],
+    decision = "allow",
+    justification = "Running Python type checks is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["pyright"],
+    decision = "allow",
+    justification = "Running Python type checks is a normal development action.",
+)
+
+
+# ============================================================
+# TEST EXECUTION
+# ============================================================
+
+prefix_rule(
+    pattern = ["pytest"],
+    decision = "allow",
+    justification = "Running Python tests is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["python", "-m", "pytest"],
+    decision = "allow",
+    justification = "Running Python tests is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["python3", "-m", "pytest"],
+    decision = "allow",
+    justification = "Running Python tests is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["coverage"],
+    decision = "prompt",
+    justification = "Coverage commands may execute project code and write artifacts.",
+)
+
+
+# ============================================================
+# DIRECT CODE EXECUTION
+# ============================================================
+
+prefix_rule(
+    pattern = ["python"],
+    decision = "prompt",
+    justification = "Direct Python execution can run arbitrary code.",
+)
+
+prefix_rule(
+    pattern = ["python3"],
+    decision = "prompt",
+    justification = "Direct Python execution can run arbitrary code.",
+)
+
+prefix_rule(
+    pattern = ["py"],
+    decision = "prompt",
+    justification = "Direct Python execution can run arbitrary code.",
+)
+
+
+# ============================================================
+# DEPENDENCY / ENVIRONMENT MUTATION
+# ============================================================
+
+prefix_rule(
+    pattern = ["pip", "install"],
+    decision = "prompt",
+    justification = "Python dependency installation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["pip3", "install"],
+    decision = "prompt",
+    justification = "Python dependency installation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["python", "-m", "pip", "install"],
+    decision = "prompt",
+    justification = "Python dependency installation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["python3", "-m", "pip", "install"],
+    decision = "prompt",
+    justification = "Python dependency installation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["pip", "uninstall"],
+    decision = "prompt",
+    justification = "Removing Python dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["pip3", "uninstall"],
+    decision = "prompt",
+    justification = "Removing Python dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["python", "-m", "venv"],
+    decision = "prompt",
+    justification = "Creating Python virtual environments writes project or user files.",
+)
+
+prefix_rule(
+    pattern = ["poetry", "install"],
+    decision = "prompt",
+    justification = "Poetry dependency installation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["poetry", "add"],
+    decision = "prompt",
+    justification = "Adding Python dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["poetry", "remove"],
+    decision = "prompt",
+    justification = "Removing Python dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["uv", "pip", "install"],
+    decision = "prompt",
+    justification = "Python dependency installation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["uv", "add"],
+    decision = "prompt",
+    justification = "Adding Python dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["uv", "remove"],
+    decision = "prompt",
+    justification = "Removing Python dependencies requires explicit approval.",
+)
+# Grok's broad prompt takes precedence over narrower allows below.
+prefix_rule(
+    pattern = [["pip", "pip3"]],
+    decision = "prompt",
+    justification = "pip commands require review, matching Grok.",
+)

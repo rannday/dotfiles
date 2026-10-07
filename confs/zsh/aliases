@@ -1,0 +1,43 @@
+alias c='clear'
+alias cat='bat --color auto'
+alias ls='exa'
+alias la='ls -la'
+alias lt='du -sh * | sort -h'
+alias cp='cp -i'
+alias mkdir='mkdir -pv'
+alias gh='history|grep'
+alias mv='mv -i'
+alias rm='rm -I --preserve-root'
+alias diff='colordiff'
+#alias find='fd'
+alias grep='grep --color=auto'
+alias egrep='egrep --color=auto'
+alias fgrep='fgrep --color=auto'
+alias vi='hx'
+alias vim='hx'
+alias edit='atom'
+alias code='atom'
+alias o='xdg-open'
+alias ungzip='gzip -d'
+alias untar='tar xvf'
+alias ipinfo='curl -s ipinfo.io'
+alias mounts='mount | grep -E ^/dev | column -t'
+alias update='sudo dnf update; sudo snap refresh'
+alias xclip='xclip -selection clipboard'
+alias ngrep='sudo ngrep'
+
+getcert() {
+  openssl s_client -showcerts -connect "$1":443
+}
+
+lg()
+{
+  export LAZYGIT_NEW_DIR_FILE=~/.lazygit/newdir
+
+  lazygit "$@"
+
+  if [ -f $LAZYGIT_NEW_DIR_FILE ]; then
+          cd "$(cat $LAZYGIT_NEW_DIR_FILE)"
+          rm -f $LAZYGIT_NEW_DIR_FILE > /dev/null
+  fi
+}

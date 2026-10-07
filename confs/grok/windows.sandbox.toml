@@ -1,0 +1,20 @@
+[profiles.workspace-main]
+extends = "workspace"
+deny = [
+  "/secrets",
+  "**/.env",
+  "**/.env.seed",
+  "**/.env.local",
+  "**/.env.development",
+  "**/.env.production",
+  "**/.env.test",
+  "**/.env.*.local",
+  "**/*.pem",
+]
+read_write = [
+  "C:\\Users\\rannd\\AppData\\Local\\go-build",
+  "C:\\Users\\rannd\\AppData\\Local\\Temp",
+  "C:\\Users\\rannd\\go\\tmp",
+  "C:\\Users\\rannd\\go\\pkg\\mod",
+  "C:\\Users\\rannd\\go\\bin",
+]

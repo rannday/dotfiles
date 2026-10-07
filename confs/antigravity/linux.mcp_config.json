@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT_TOKEN}",
+        "X-MCP-Toolsets": "context,repos,issues,pull_requests,users,actions",
+        "X-MCP-Exclude-Tools": "merge_pull_request,delete_repository,delete_file,push_files,create_or_update_file,create_branch,create_repository,fork_repository,update_pull_request_branch,actions_run_trigger"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "fff": {
+      "command": "fff-mcp"
+    },
+    "gk": {
+      "command": "gk",
+      "args": [
+        "mcp"
+      ]
+    },
+    "gopls": {
+      "command": "gopls",
+      "args": [
+        "mcp"
+      ]
+    },
+    "serena": {
+      "command": "serena",
+      "args": [
+        "start-mcp-server",
+        "--project-from-cwd",
+        "--context=antigravity"
+      ]
+    }
+  }
+}

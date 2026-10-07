@@ -1,0 +1,339 @@
+[cli]
+installer = "internal"
+
+[models]
+default = "grok-4.7"
+default_reasoning_effort = "high"
+web_search = "grok-4.7"
+
+[ui]
+max_thoughts_width = 120
+fork_secondary_model = "grok-4.7"
+compact_mode = false
+
+[features]
+codebase_indexing = true
+lsp_tools = false
+subagent_model_inheritance = true
+mcp_auto_restart = true
+
+[session]
+auto_compact_threshold_percent = 85
+
+[toolset.bash]
+timeout_secs = 300.0
+max_timeout_secs = 600.0
+output_byte_limit = 200000
+auto_background_on_timeout = true
+
+[shell_environment_policy]
+ignore_default_excludes = false
+
+[sandbox]
+profile = "workspace-main"
+
+[subagents]
+enabled = true
+# Default max_concurrent is 32. Leave it unset so a three-way scout is not queued.
+
+[marketplace]
+official_marketplace_auto_installed = true
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[mcp_servers.gk]
+command = "gk"
+args = ["mcp"]
+enabled = true
+
+[mcp_servers.github]
+type = "http"
+url = "https://api.githubcopilot.com/mcp/"
+enabled = true
+
+[mcp_servers.github.headers]
+Authorization = "Bearer ${GITHUB_PAT_TOKEN}"
+# context, repos, issues, pull_requests, and users are the server default.
+# actions adds CI checks. Excluded tools never appear, even if a toolset lists them.
+# This session's catalog omitted the previous exclude list, so the header is honored.
+X-MCP-Toolsets = "context,repos,issues,pull_requests,users,actions"
+X-MCP-Exclude-Tools = "merge_pull_request,delete_repository,delete_file,push_files,create_or_update_file,create_branch,create_repository,fork_repository,update_pull_request_branch,actions_run_trigger"
+
+[mcp_servers.fff]
+command = "fff-mcp"
+enabled = true
+
+[mcp_servers.gopls]
+command = "gopls"
+args = ["mcp"]
+type = "stdio"
+enabled = true
+startup_timeout_sec = 90
+
+[mcp_servers.serena]
+command = "serena"
+args = ["start-mcp-server", "--project-from-cwd", "--context=grok"]
+
+# Hide GitKraken cloud and UI tools so a turn is not spent calling them.
+# Deny rules below still block a call if this map is ignored.
+[disabled_mcp_tools]
+gk = [
+  "app_tool_box",
+  "app_update_user_preferences",
+  "git_commit_composer",
+  "git_resolve",
+  "gitkraken_workspace_list",
+  "gitlens_launchpad",
+  "gitlens_start_review",
+  "gitlens_start_work",
+  "issues_add_comment",
+  "issues_assigned_to_me",
+  "issues_create",
+  "issues_get_detail",
+  "pull_request_assigned_to_me",
+  "pull_request_create",
+  "pull_request_create_review",
+  "pull_request_get_comments",
+  "pull_request_get_detail",
+  "repository_get_file_content",
+]
+
+# [ui] permission_mode stays unset. always-approve skips MCP ask rules.
+# A live file may set it. Do not copy that mode into source.
+# Install overwrites ~/.grok/config.toml. Restore [ui] permission_mode,
+# [ui] yolo, and [marketplace] default_skills_installs_purged afterward
+# when those live keys should survive.
+[permission]
+allow = [
+  # File reads and edits. Deny for .env and *.pem still wins.
+  # Unlisted Read prompts, so an unattended fire stalls on read_file.
+  "Read",
+  "Edit",
+  "Write",
+  # GitKraken local git. Server name is gk, so the tool prefix is gk__.
+  # Cloud issue, PR, file, and GitLens tools are denied below.
+  "MCPTool(gk__git_status)",
+  "MCPTool(gk__git_log_or_diff)",
+  "MCPTool(gk__git_blame)",
+  "MCPTool(gk__git_graph)",
+  # List stays allowed. MCPTool matches the tool id, not action.
+  # tool_gate.py denies action create and names the chat confirm.
+  # Do not also put this tool on ask. That would ask for list.
+  "MCPTool(gk__git_branch)",
+  "MCPTool(gk__git_fetch)",
+  "MCPTool(gk__git_add)",
+  "MCPTool(gk__git_commit)",
+  "MCPTool(gk__git_push)",
+  # GitHub API reads, issues, pull requests, reviews, checks, and releases.
+  # Remote file writes, branch creation, and repo admin stay off this list.
+  # Local-tree reads are not a static deny. tool_gate.py denies
+  # github__get_file_contents and github__search_code when owner/repo
+  # matches a local git remote. Other remotes stay allowed.
+  "MCPTool(github__get_*)",
+  "MCPTool(github__list_*)",
+  "MCPTool(github__search_*)",
+  "MCPTool(github__issue_read)",
+  "MCPTool(github__issue_write)",
+  "MCPTool(github__sub_issue_write)",
+  "MCPTool(github__pull_request_read)",
+  "MCPTool(github__pull_request_review_write)",
+  "MCPTool(github__add_issue_comment)",
+  "MCPTool(github__update_issue_comment)",
+  "MCPTool(github__add_reply_to_pull_request_comment)",
+  "MCPTool(github__add_comment_to_pending_review)",
+  "MCPTool(github__create_pull_request)",
+  "MCPTool(github__update_pull_request)",
+  "MCPTool(github__request_copilot_review)",
+  "MCPTool(fff__*)",
+  "MCPTool(gopls__*)",
+  # Sequence is not a static deny. tool_gate.py denies a .go edit with no
+  # prior gopls__go_symbol_references, and blocks Stop with no
+  # gopls__go_diagnostics after. The same hook covers Serena symbol edits,
+  # replace_content, and replace_in_files when the call can touch .go.
+  # serena__rename_symbol stays on allow. The hook denies a .go path and
+  # names gopls__go_rename_symbol. Non-go rename stays allowed.
+  # Do not deny gopls__*.
+  # Serena symbol reads and symbol edits. Named tools only.
+  # A wildcard allow skips the ask rules under always-approve.
+  "MCPTool(serena__initial_instructions)",
+  "MCPTool(serena__list_memories)",
+  "MCPTool(serena__read_memory)",
+  "MCPTool(serena__get_symbols_overview)",
+  "MCPTool(serena__find_symbol)",
+  "MCPTool(serena__find_referencing_symbols)",
+  "MCPTool(serena__find_declaration)",
+  "MCPTool(serena__find_implementations)",
+  "MCPTool(serena__get_diagnostics_for_file)",
+  "MCPTool(serena__replace_symbol_body)",
+  "MCPTool(serena__insert_before_symbol)",
+  "MCPTool(serena__insert_after_symbol)",
+  "MCPTool(serena__rename_symbol)",
+  # safe_delete_symbol stays on ask. Do not also allow it.
+  # git remote -v stays. gk has no remote tool.
+  "Bash(git remote -v)",
+  # Go
+  "Bash(go version)",
+  "Bash(go env)",
+  "Bash(go fmt *)",
+  "Bash(gofmt)",
+  "Bash(gofmt *)",
+  "Bash(go vet *)",
+  "Bash(go build *)",
+  "Bash(go test *)",
+  "Bash(go run *)",
+  "Bash(go list *)",
+  "Bash(mkdir *)",
+  "Bash(mkdir.exe *)",
+  "Bash(New-Item *)",
+  "Bash(Get-Date *)",
+  "Bash(rg *)"
+]
+deny = [
+  # MCP Tools
+  "MCPTool(github__merge_pull_request)",
+  "MCPTool(github__delete_repository)",
+  "MCPTool(github__delete_file)",
+  "MCPTool(github__push_files)",
+  "MCPTool(github__create_or_update_file)",
+  "MCPTool(github__create_branch)",
+  "MCPTool(github__create_repository)",
+  "MCPTool(github__fork_repository)",
+  "MCPTool(github__update_pull_request_branch)",
+  "MCPTool(github__actions_run_trigger)",
+  "MCPTool(gk__git_commit_composer)",
+  "MCPTool(gk__git_resolve)",
+  "MCPTool(gk__gitlens_*)",
+  "MCPTool(gk__issues_*)",
+  "MCPTool(gk__pull_request_*)",
+  "MCPTool(gk__repository_get_file_content)",
+  "MCPTool(gk__gitkraken_workspace_list)",
+  "MCPTool(gk__app_*)",
+  "MCPTool(serena__activate_project)",
+  # Secret files. Windows has no kernel sandbox, so these are the bind.
+  # Read denies also cover grep and shell paths that touch the same files.
+  "Read(**/.env)",
+  "Read(**/.env.seed)",
+  "Read(**/.env.local)",
+  "Read(**/.env.development)",
+  "Read(**/.env.production)",
+  "Read(**/.env.test)",
+  "Read(**/.env.*.local)",
+  "Read(**/*.pem)",
+  "Edit(**/.env)",
+  "Edit(**/.env.seed)",
+  "Edit(**/.env.local)",
+  "Edit(**/.env.development)",
+  "Edit(**/.env.production)",
+  "Edit(**/.env.test)",
+  "Edit(**/.env.*.local)",
+  "Edit(**/*.pem)",
+  # System Tools
+  "Bash(rm -rf /)",
+  "Bash(rm -fr /)",
+  "Bash(rm -rf / *)",
+  "Bash(rm -rf .)",
+  "Bash(rm -rf . *)",
+  "Bash(rm -fr .)",
+  "Bash(Remove-Item *Recurse*)",
+  "Bash(Remove-Item *recurse*)",
+  "Bash(remove-item *Recurse*)",
+  "Bash(remove-item *recurse*)",
+  "Bash(del */s*)",
+  "Bash(del */S*)",
+  "Bash(rmdir */s*)",
+  "Bash(rd */s*)",
+  "Bash(sudo)",
+  "Bash(sudo *)",
+  "Bash(del /s /q C:\\*)",
+  "Bash(rd /s /q C:\\*)",
+  "Bash(rmdir /s /q C:\\*)",
+  "Bash(Remove-Item -Recurse -Force C:\\*)",
+  # Shell git. Deny is the hard gate. tool_gate.py names the gk tool
+  # for git.exe and git -C, which this matcher misses.
+  "Bash(git status)",
+  "Bash(git diff *)",
+  "Bash(git log *)",
+  "Bash(git show *)",
+  "Bash(git branch)",
+  "Bash(git branch *)",
+  "Bash(git add*)",
+  "Bash(git commit*)",
+  "Bash(git push*)",
+  "Bash(git blame*)",
+  "Bash(git stash*)",
+  "Bash(git add:*)",
+  "Bash(git commit:*)",
+  "Bash(git push:*)",
+  "Bash(git stash:*)",
+  "Bash(git push --force)",
+  "Bash(git push --force *)",
+  "Bash(git push -f)",
+  "Bash(git push -f *)",
+  "Bash(git push --force-with-lease)",
+  "Bash(git push --force-with-lease *)",
+  "Bash(git push*--force*)",
+  "Bash(git push* -f*)",
+  "Bash(git reset --hard)",
+  "Bash(git reset --hard *)",
+  "Bash(git clean)",
+  "Bash(git clean *)",
+]
+ask = [
+  "Bash(curl *)",
+  "Bash(wget *)",
+  "Bash(Invoke-WebRequest *)",
+  "Bash(Invoke-RestMethod *)",
+  "Bash(ssh *)",
+  "Bash(scp *)",
+  "Bash(rsync *)",
+  "Bash(make *)",
+  "Bash(docker *)",
+  "Bash(npm *)",
+  "Bash(pip *)",
+  "Bash(gh *)",
+  "Bash(git reset:*)",
+  "Bash(git clean:*)",
+  "Bash(git rebase:*)",
+  "Bash(git checkout:*)",
+  "Bash(git switch:*)",
+  "Bash(git restore:*)",
+  "Bash(npx *)",
+  "MCPTool(gk__git_checkout)",
+  "MCPTool(gk__git_stash)",
+  "MCPTool(gk__git_pull)",
+  "MCPTool(gk__git_worktree)",
+  # Confirm. Not also on allow. always-approve skips this prompt.
+  "MCPTool(serena__safe_delete_symbol)",
+  "MCPTool(serena__onboarding)",
+  "MCPTool(serena__write_memory)",
+  "MCPTool(serena__edit_memory)",
+  "MCPTool(serena__rename_memory)",
+  "MCPTool(serena__delete_memory)",
+  "Bash(git remote set-url:*)",
+  "Bash(Remove-Item *)",
+  "Bash(remove-item *)",
+  "Bash(winget *)",
+  "Bash(apt *)",
+  "Bash(apt-get *)",
+  "Bash(pacman *)",
+  "Bash(docker-compose *)",
+  "Bash(go get *)",
+  "Bash(go install *)",
+  "Bash(go mod *)",
+]
+
+[compat.claude]
+skills = true
+rules = true
+agents = true
+mcps = true
+hooks = true
+
+[compat.cursor]
+skills = true
+rules = true
+agents = true
+mcps = true
+hooks = true

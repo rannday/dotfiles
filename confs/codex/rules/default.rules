@@ -1,0 +1,119 @@
+# ============================================================
+# DEFAULT EXECUTION POLICY
+# ============================================================
+# General cross-platform review gates.
+# Keep OS, language, git, package manager, and destructive rules split out.
+
+# ============================================================
+# SHELL WRAPPERS
+# ============================================================
+
+prefix_rule(
+    pattern = [["bash", "sh", "zsh"], ["-c", "-lc"]],
+    decision = "prompt",
+    justification = "Shell wrapper execution requires review because it may hide multiple commands.",
+)
+
+prefix_rule(
+    pattern = ["powershell"],
+    decision = "prompt",
+    justification = "PowerShell execution requires review because it may hide multiple commands.",
+)
+
+prefix_rule(
+    pattern = ["pwsh"],
+    decision = "prompt",
+    justification = "PowerShell execution requires review because it may hide multiple commands.",
+)
+
+prefix_rule(
+    pattern = ["cmd", "/c"],
+    decision = "prompt",
+    justification = "Windows cmd wrapper execution requires review because it may hide multiple commands.",
+)
+
+
+# ============================================================
+# TASK RUNNERS
+# ============================================================
+
+prefix_rule(
+    pattern = ["make"],
+    decision = "prompt",
+    justification = "Make targets can run arbitrary project-defined commands.",
+)
+
+prefix_rule(
+    pattern = ["mage"],
+    decision = "prompt",
+    justification = "Mage targets can run arbitrary project-defined commands.",
+)
+
+prefix_rule(
+    pattern = ["task"],
+    decision = "prompt",
+    justification = "Task runner commands can run arbitrary project-defined commands.",
+)
+
+prefix_rule(
+    pattern = ["just"],
+    decision = "prompt",
+    justification = "Justfile recipes can run arbitrary project-defined commands.",
+)
+
+
+# ============================================================
+# BULK FILE OPERATIONS
+# ============================================================
+
+prefix_rule(
+    pattern = ["find", "."],
+    decision = "prompt",
+    justification = "Repository-wide find commands may be paired with bulk edits or deletes.",
+)
+
+prefix_rule(
+    pattern = ["xargs"],
+    decision = "prompt",
+    justification = "xargs can apply commands across many files.",
+)
+
+prefix_rule(
+    pattern = ["sed", "-i"],
+    decision = "prompt",
+    justification = "In-place text replacement requires review.",
+)
+
+prefix_rule(
+    pattern = ["perl", "-pi"],
+    decision = "prompt",
+    justification = "In-place text replacement requires review.",
+)
+
+# ============================================================
+# FILE SEARCH / READ-ONLY INSPECTION
+# ============================================================
+
+prefix_rule(
+    pattern = [["mkdir", "mkdir.exe", "Get-Date"]],
+    decision = "allow",
+    justification = "Directory creation and date inspection match the Grok allow policy.",
+)
+
+prefix_rule(
+    pattern = [["New-Item", "new-item"]],
+    decision = "prompt",
+    justification = "File creation and overwrites need review; use mkdir for directory creation.",
+)
+
+prefix_rule(
+    pattern = ["rg"],
+    decision = "allow",
+    justification = "ripgrep is a read-only file search command.",
+)
+
+prefix_rule(
+    pattern = ["fff-mcp"],
+    decision = "allow",
+    justification = "fff-mcp starts the read-only fff MCP file search server.",
+)

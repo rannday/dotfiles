@@ -1,0 +1,119 @@
+{
+  "terminal": {
+    "shell": {
+      "program": "pwsh.exe"
+    }
+  },
+  "disable_ai": false,
+  "vim_mode": false,
+  "buffer_font_family": "Fira Code",
+  "buffer_font_size": 15,
+  "ui_font_family": "Segoe UI",
+  "ui_font_size": 16,
+  "tab_size": 2,
+  "hard_tabs": true,
+
+  "title_bar": {
+    "show_menus": true
+  },
+
+  "project_panel": {
+    "starts_open": true,
+    "dock": "left",
+    "bold_folder_labels": true,
+    "git_status": true,
+    "git_status_indicator": true,
+    "show_diagnostics": "off",
+    "diagnostic_badges": false
+  },
+
+  "git_panel": {
+    "dock": "left"
+  },
+
+  "theme": {
+    "mode": "system",
+    "light": "Gruvbox Light Soft",
+    "dark": "Gruvbox Dark Hard"
+  },
+
+  "icon_theme": {
+    "mode": "system",
+    "light": "JetBrains New UI Icons (Light)",
+    "dark": "JetBrains New UI Icons (Dark)"
+  },
+
+  "file_types": {
+    "Shell Script": [
+      "**/logrotate.d/*",
+      "**/init.d/*",
+      "**/conf.d/*"
+    ]
+  },
+
+  "code_lens": "on",
+  "lsp": {
+    "gopls": {
+      "initialization_options": {
+        "hints": {
+          "assignVariableTypes": true,
+          "compositeLiteralFields": true,
+          "constantValues": true,
+          "parameterNames": true
+        },
+        "codelenses": {
+          "test": true,
+          "tidy": true,
+          "upgrade_dependency": true
+        }
+      }
+    }
+  },
+
+  "languages": {
+    "JSON": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "YAML": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "Python": {
+      "hard_tabs": false,
+      "tab_size": 4
+    },
+    "Rust": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "Go": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "C": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "C++": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "HTML": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "CSS": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "Shell Script": {
+      "hard_tabs": false,
+      "tab_size": 2
+    },
+    "PowerShell": {
+      "hard_tabs": false,
+      "tab_size": 2
+    }
+  }
+}

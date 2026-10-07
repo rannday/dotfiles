@@ -1,0 +1,2 @@
+[[ -z "$SSH_AGENT_PID" ]] && eval "$(ssh-agent -s)" >/dev/null
+[[ -f ~/.bashrc ]] && . ~/.bashrc

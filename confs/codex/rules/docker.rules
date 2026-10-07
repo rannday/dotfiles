@@ -1,0 +1,142 @@
+# ============================================================
+# CONTAINERS / VMS
+# ============================================================
+
+# ============================================================
+# LOW-RISK READS
+# ============================================================
+
+prefix_rule(
+    pattern = ["docker", "--version"],
+    decision = "allow",
+    justification = "Reading Docker version is safe.",
+)
+
+prefix_rule(
+    pattern = ["docker", "version"],
+    decision = "allow",
+    justification = "Reading Docker version information is safe.",
+)
+
+prefix_rule(
+    pattern = ["docker", "ps"],
+    decision = "allow",
+    justification = "Listing Docker containers is safe.",
+)
+
+prefix_rule(
+    pattern = ["docker", "images"],
+    decision = "allow",
+    justification = "Listing Docker images is safe.",
+)
+
+prefix_rule(
+    pattern = ["docker", "volume", "ls"],
+    decision = "allow",
+    justification = "Listing Docker volumes is safe.",
+)
+
+prefix_rule(
+    pattern = ["docker", "network", "ls"],
+    decision = "allow",
+    justification = "Listing Docker networks is safe.",
+)
+
+
+# ============================================================
+# EXECUTION / BUILD
+# ============================================================
+
+prefix_rule(
+    pattern = ["docker", "build"],
+    decision = "prompt",
+    justification = "Docker builds can execute arbitrary Dockerfile commands.",
+)
+
+prefix_rule(
+    pattern = ["docker", "run"],
+    decision = "prompt",
+    justification = "Running containers executes code and may mount files or access networks.",
+)
+
+prefix_rule(
+    pattern = ["docker", "exec"],
+    decision = "prompt",
+    justification = "Executing commands inside containers requires review.",
+)
+
+prefix_rule(
+    pattern = ["docker", "compose"],
+    decision = "prompt",
+    justification = "Docker Compose can build, run, stop, or remove project services.",
+)
+
+prefix_rule(
+    pattern = ["docker-compose"],
+    decision = "prompt",
+    justification = "Docker Compose can build, run, stop, or remove project services.",
+)
+
+
+# ============================================================
+# DESTRUCTIVE / DATA LOSS
+# ============================================================
+
+prefix_rule(
+    pattern = ["docker", "system", "prune"],
+    decision = "prompt",
+    justification = "Docker system pruning can delete images, containers, and caches.",
+)
+
+prefix_rule(
+    pattern = ["docker", "volume", "rm"],
+    decision = "prompt",
+    justification = "Deleting Docker volumes can destroy persistent data.",
+)
+
+prefix_rule(
+    pattern = ["docker", "volume", "prune"],
+    decision = "prompt",
+    justification = "Pruning Docker volumes can destroy persistent data.",
+)
+
+prefix_rule(
+    pattern = ["docker", "compose", "down", "-v"],
+    decision = "prompt",
+    justification = "Removing Compose volumes can destroy persistent data.",
+)
+
+prefix_rule(
+    pattern = ["docker-compose", "down", "-v"],
+    decision = "prompt",
+    justification = "Removing Compose volumes can destroy persistent data.",
+)
+
+
+# ============================================================
+# PODMAN
+# ============================================================
+
+prefix_rule(
+    pattern = ["podman", "system", "prune"],
+    decision = "prompt",
+    justification = "Podman system pruning can delete images, containers, and caches.",
+)
+
+prefix_rule(
+    pattern = ["podman", "volume", "rm"],
+    decision = "prompt",
+    justification = "Deleting Podman volumes can destroy persistent data.",
+)
+
+prefix_rule(
+    pattern = ["podman", "volume", "prune"],
+    decision = "prompt",
+    justification = "Pruning Podman volumes can destroy persistent data.",
+)
+# Grok's broad prompt takes precedence over narrower allows below.
+prefix_rule(
+    pattern = ["docker"],
+    decision = "prompt",
+    justification = "Docker commands require review, matching Grok.",
+)

@@ -1,0 +1,7 @@
+layout {
+  pane name="main" {
+    command "bash"
+    args "-lc" "cd $HOME && exec bash"
+  }
+}
+

@@ -1,0 +1,8 @@
+if [ -f "$HOME/.ssh-agent.pid" ]; then
+  pid=$(cat "$HOME/.ssh-agent.pid")
+  if ps -p "$pid" -o comm= | grep -q '^ssh-agent$'; then
+    kill "$pid"
+  fi
+  rm -f "$HOME/.ssh-agent.pid"
+fi
+clear

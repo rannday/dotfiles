@@ -1,0 +1,23 @@
+HISTFILE=~/.zsh_history
+HISTSIZE=20000
+SAVEHIST=15000
+
+if [[ -r ~/.zshalias ]]; then
+  . ~/.zshalias
+fi
+
+if [[ -r ~/.noc_alias ]]; then
+  . ~/.noc_alias
+fi
+
+autoload -U compinit; compinit
+
+eval "$(zoxide init zsh)"
+
+setopt autocd extendedglob nomatch notify
+unsetopt beep
+bindkey -v
+
+source ~/.zsh_plugins.sh
+
+SPACESHIP_VI_MODE_SHOW=false

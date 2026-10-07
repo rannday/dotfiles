@@ -1,0 +1,285 @@
+# ============================================================
+# GO DEVELOPMENT COMMANDS
+# ============================================================
+
+# ============================================================
+# SAFE / COMMON READ-ONLY OR LOW-RISK COMMANDS
+# ============================================================
+
+prefix_rule(
+    pattern = ["go", "version"],
+    decision = "allow",
+    justification = "Reading the installed Go version is safe.",
+)
+
+prefix_rule(
+    pattern = ["go", "env"],
+    decision = "allow",
+    justification = "Reading Go environment configuration is safe.",
+)
+
+prefix_rule(
+    pattern = ["go", "help"],
+    decision = "allow",
+    justification = "Reading Go help output is safe.",
+)
+
+prefix_rule(
+    pattern = ["go", "doc"],
+    decision = "allow",
+    justification = "Reading Go documentation is safe.",
+)
+
+prefix_rule(
+    pattern = ["go", "list"],
+    decision = "allow",
+    justification = "Listing Go packages is safe for normal development.",
+)
+
+prefix_rule(
+    pattern = ["go", "fmt"],
+    decision = "allow",
+    justification = "Formatting Go source is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["gofmt"],
+    decision = "allow",
+    justification = "Formatting Go source is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["goimports"],
+    decision = "allow",
+    justification = "Formatting Go imports is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["go", "vet"],
+    decision = "allow",
+    justification = "Static analysis with go vet is safe for normal development.",
+)
+
+prefix_rule(
+    pattern = ["go", "build"],
+    decision = "allow",
+    justification = "Building Go packages is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["go", "test"],
+    decision = "allow",
+    justification = "Running Go tests is a normal development action.",
+)
+
+
+# ============================================================
+# PROMPT: EXECUTES PROJECT CODE / SPECIAL TEST MODES
+# ============================================================
+
+prefix_rule(
+    pattern = ["go", "run"],
+    decision = "allow",
+    justification = "Running project Go code matches the Grok allow policy.",
+)
+
+prefix_rule(
+    pattern = ["go", "generate"],
+    decision = "prompt",
+    justification = "go generate can execute arbitrary project-defined commands and modify files.",
+)
+
+prefix_rule(
+    pattern = ["go", "test", "-exec"],
+    decision = "prompt",
+    justification = "go test -exec changes how test binaries are executed and requires review.",
+)
+
+prefix_rule(
+    pattern = ["go", "test", "-fuzz"],
+    decision = "prompt",
+    justification = "Fuzzing can be long-running and resource-intensive.",
+)
+
+prefix_rule(
+    pattern = ["go", "test", "-coverprofile"],
+    decision = "prompt",
+    justification = "Writing coverage profiles creates or overwrites files.",
+)
+
+prefix_rule(
+    pattern = ["go", "tool"],
+    decision = "prompt",
+    justification = "go tool can invoke lower-level tools and requires review.",
+)
+
+prefix_rule(
+    pattern = ["go", "tool", "cover"],
+    decision = "prompt",
+    justification = "go tool cover may read or write generated coverage artifacts.",
+)
+
+
+# ============================================================
+# MODULE / DEPENDENCY MUTATION
+# ============================================================
+
+prefix_rule(
+    pattern = ["go", "get"],
+    decision = "prompt",
+    justification = "Adding or changing Go module dependencies requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["go", "install"],
+    decision = "prompt",
+    justification = "Installing Go binaries requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "tidy"],
+    decision = "prompt",
+    justification = "go mod tidy can modify go.mod and go.sum.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "download"],
+    decision = "prompt",
+    justification = "Downloading Go modules may access the network.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "vendor"],
+    decision = "prompt",
+    justification = "Vendoring modules can create or replace many files.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "edit"],
+    decision = "prompt",
+    justification = "Editing go.mod requires review.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "init"],
+    decision = "prompt",
+    justification = "Initializing a Go module modifies project structure.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "why"],
+    decision = "allow",
+    justification = "Explaining module requirements is safe.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "graph"],
+    decision = "allow",
+    justification = "Reading the module dependency graph is safe.",
+)
+
+prefix_rule(
+    pattern = ["go", "mod", "verify"],
+    decision = "allow",
+    justification = "Verifying downloaded modules is safe.",
+)
+
+
+# ============================================================
+# GO WORKSPACE MUTATION
+# ============================================================
+
+prefix_rule(
+    pattern = ["go", "work", "init"],
+    decision = "prompt",
+    justification = "Initializing a Go workspace modifies workspace files.",
+)
+
+prefix_rule(
+    pattern = ["go", "work", "use"],
+    decision = "prompt",
+    justification = "Changing Go workspace module membership requires review.",
+)
+
+prefix_rule(
+    pattern = ["go", "work", "sync"],
+    decision = "prompt",
+    justification = "Syncing workspace build lists can modify module files.",
+)
+
+prefix_rule(
+    pattern = ["go", "work", "edit"],
+    decision = "prompt",
+    justification = "Editing go.work requires review.",
+)
+
+prefix_rule(
+    pattern = ["go", "work", "vendor"],
+    decision = "prompt",
+    justification = "Vendoring workspace modules can create or replace many files.",
+)
+
+
+# ============================================================
+# COMMON GO GENERATORS / TOOLS
+# ============================================================
+
+prefix_rule(
+    pattern = ["mockgen"],
+    decision = "prompt",
+    justification = "Mock generation writes source files and requires review.",
+)
+
+prefix_rule(
+    pattern = ["stringer"],
+    decision = "prompt",
+    justification = "stringer generates source files and requires review.",
+)
+
+prefix_rule(
+    pattern = ["protoc"],
+    decision = "prompt",
+    justification = "Protocol buffer generation can write many files.",
+)
+
+prefix_rule(
+    pattern = ["sqlc"],
+    decision = "prompt",
+    justification = "sqlc generates source files and requires review.",
+)
+
+prefix_rule(
+    pattern = ["oapi-codegen"],
+    decision = "prompt",
+    justification = "OpenAPI code generation writes source files and requires review.",
+)
+
+prefix_rule(
+    pattern = ["swag"],
+    decision = "prompt",
+    justification = "Swagger generation writes project files and requires review.",
+)
+
+prefix_rule(
+    pattern = ["golangci-lint", "run"],
+    decision = "allow",
+    justification = "Running Go lint checks is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["staticcheck"],
+    decision = "allow",
+    justification = "Running staticcheck is a normal development action.",
+)
+
+prefix_rule(
+    pattern = ["dlv"],
+    decision = "prompt",
+    justification = "Debugging executes project binaries and requires review.",
+)
+# Grok's broad prompt takes precedence over narrower allows below.
+prefix_rule(
+    pattern = ["go", "mod"],
+    decision = "prompt",
+    justification = "All module commands require review, matching Grok.",
+)

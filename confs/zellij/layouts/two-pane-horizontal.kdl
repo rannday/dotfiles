@@ -1,0 +1,13 @@
+layout {
+  pane split_direction="vertical" {
+    pane name="left" {
+      command "bash"
+      args "-lc" "cd $HOME && exec bash"
+    }
+    pane name="right" {
+      command "bash"
+      args "-lc" "cd $HOME && exec bash"
+    }
+  }
+}
+

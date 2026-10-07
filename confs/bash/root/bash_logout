@@ -1,0 +1,4 @@
+if [[ -n "$SSH_AGENT_PID" ]] && ps -p "$SSH_AGENT_PID" -o comm= | grep -q '^ssh-agent$'; then
+  kill "$SSH_AGENT_PID"
+fi
+clear

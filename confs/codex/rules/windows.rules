@@ -1,0 +1,203 @@
+# ============================================================
+# WINDOWS COMMANDS
+# ============================================================
+
+# WSL leaves the Windows sandbox. Review the complete invocation each time.
+# Prefix matching cannot restrict the nested command to tests.
+prefix_rule(
+    pattern = [["wsl", "wsl.exe", "WSL", "WSL.EXE", "C:\\Windows\\System32\\wsl.exe"]],
+    decision = "prompt",
+    justification = "Review WSL distro, workdir, complete command, and temporary fixture isolation before escalation.",
+    match = [
+        ["wsl.exe", "--distribution", "Debian", "--cd", "/tmp", "--exec", "/usr/bin/true"],
+        ["wsl", "-d", "Debian", "--cd", "/tmp", "--exec", "/bin/bash", "--noprofile", "--norc", "-c", "printf smoke"],
+        ["wsl.exe", "--shutdown"],
+        ["C:\\Windows\\System32\\wsl.exe", "--list", "--verbose"],
+    ],
+    not_match = [["pwsh", "-NoProfile", "-File", "test.ps1"]],
+)
+
+# ============================================================
+# CATASTROPHIC DELETE PROTECTION
+# ============================================================
+
+prefix_rule(
+    pattern = ["del", "/s", "/q", "C:\\"],
+    decision = "forbidden",
+    justification = "Recursive deletion of the system drive is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["rmdir", "/s", "/q", "C:\\"],
+    decision = "forbidden",
+    justification = "Recursive removal of the system drive is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["rd", "/s", "/q", "C:\\"],
+    decision = "forbidden",
+    justification = "Recursive removal of the system drive is forbidden.",
+)
+
+prefix_rule(
+    pattern = ["Remove-Item", "-Recurse", "-Force", "C:\\"],
+    decision = "forbidden",
+    justification = "PowerShell recursive deletion of the system drive is forbidden.",
+)
+
+
+# ============================================================
+# DESTRUCTIVE FILE OPERATIONS
+# ============================================================
+
+prefix_rule(
+    pattern = [["Remove-Item", "remove-item"], ["-Recurse", "-recurse"]],
+    decision = "forbidden",
+    justification = "PowerShell recursive deletion is forbidden; the hook checks other argument positions and casing.",
+)
+
+prefix_rule(
+    pattern = ["Remove-Item", "-Force"],
+    decision = "prompt",
+    justification = "Forced PowerShell deletion requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = [["del", "DEL"], ["/s", "/S"]],
+    decision = "forbidden",
+    justification = "Recursive Windows deletion is forbidden.",
+)
+
+prefix_rule(
+    pattern = [["rmdir", "RMDIR"], ["/s", "/S"]],
+    decision = "forbidden",
+    justification = "Recursive Windows directory removal is forbidden.",
+)
+
+prefix_rule(
+    pattern = [["rd", "RD"], ["/s", "/S"]],
+    decision = "forbidden",
+    justification = "Recursive Windows directory removal is forbidden.",
+)
+
+
+# ============================================================
+# SYSTEM / PERSISTENCE CHANGES
+# ============================================================
+
+prefix_rule(
+    pattern = ["reg"],
+    decision = "prompt",
+    justification = "Registry access or modification requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["sc"],
+    decision = "prompt",
+    justification = "Windows service control requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["Set-Service"],
+    decision = "prompt",
+    justification = "Windows service modification requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["New-Service"],
+    decision = "prompt",
+    justification = "Windows service creation requires explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["schtasks"],
+    decision = "prompt",
+    justification = "Scheduled task changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["netsh"],
+    decision = "prompt",
+    justification = "Windows network stack or firewall changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["net", "user"],
+    decision = "prompt",
+    justification = "Local user changes require explicit approval.",
+)
+
+prefix_rule(
+    pattern = ["net", "localgroup"],
+    decision = "prompt",
+    justification = "Local group changes require explicit approval.",
+)
+
+
+# ============================================================
+# PACKAGE MANAGERS
+# ============================================================
+
+prefix_rule(
+    pattern = [["choco", "winget"]],
+    decision = "prompt",
+    justification = "Windows package manager usage requires explicit approval.",
+)
+
+# ============================================================
+# FILE SEARCH / READ-ONLY INSPECTION
+# ============================================================
+
+prefix_rule(
+    pattern = ["Select-String"],
+    decision = "allow",
+    justification = "Select-String is a read-only PowerShell file search command.",
+)
+
+prefix_rule(
+    pattern = ["Get-Content"],
+    decision = "allow",
+    justification = "Get-Content is a read-only PowerShell file reading command.",
+)
+
+prefix_rule(
+    pattern = ["Select-Object"],
+    decision = "allow",
+    justification = "Select-Object is read-only output filtering/limiting.",
+)
+
+prefix_rule(
+    pattern = ["ForEach-Object"],
+    decision = "prompt",
+    justification = "ForEach-Object accepts arbitrary scriptblocks and requires review.",
+)
+
+prefix_rule(
+    pattern = ["Where-Object"],
+    decision = "prompt",
+    justification = "Where-Object accepts arbitrary scriptblocks and requires review.",
+)
+
+prefix_rule(
+    pattern = ["Get-ChildItem"],
+    decision = "allow",
+    justification = "Get-ChildItem is read-only directory/file listing.",
+)
+
+prefix_rule(
+    pattern = ["Resolve-Path"],
+    decision = "allow",
+    justification = "Resolve-Path is read-only path resolution.",
+)
+
+prefix_rule(
+    pattern = ["Test-Path"],
+    decision = "allow",
+    justification = "Test-Path is read-only path existence checking.",
+)
+# Grok's broad prompt takes precedence over narrower allows below.
+prefix_rule(
+    pattern = [["Remove-Item", "remove-item"]],
+    decision = "prompt",
+    justification = "PowerShell deletion requires review; recursive deletion is forbidden.",
+)
