@@ -575,6 +575,40 @@ def shell_secret_paths(command: str, shell: str = '') -> bool:
   words = [word for word, _ in parsed]
   if any(shell_secret_paths(body, shell) for body in substitutions):
     return True
+  # Only rg's negative glob arguments exclude paths. Keep shell expansions
+  # and every other argument subject to the normal protected-path checks.
+  for (begin, _), (end, _) in zip(starts, starts[1:] + [(len(words), '')]):
+    if begin == end or words[begin].replace('\\', '/').rsplit('/', 1)[-1].lower().removesuffix('.exe') != 'rg':
+      continue
+    glob_value, option_value = False, False
+    for index in range(begin + 1, end):
+      raw, pattern = parsed[index]
+      if option_value:
+        option_value = False
+        continue
+      if raw == '--':
+        break
+      if glob_value:
+        glob_value = False
+      elif raw in ('-g', '--glob', '--iglob'):
+        glob_value = True
+        continue
+      else:
+        if raw in ('-e', '--regexp', '-f', '--file'):
+          option_value = True
+          continue
+        match = re.match(r'(?:--(?:i?glob)=|-g)(.+)$', raw)
+        if not match:
+          if raw.startswith('-') and raw not in ('--files', '--hidden', '--no-ignore',
+              '--no-ignore-vcs', '--no-ignore-parent', '-n', '--line-number',
+              '-l', '--files-with-matches', '-i', '--ignore-case', '-F', '--fixed-strings'):
+            break  # An unfamiliar option may consume the next glob switch.
+          continue
+        prefix = len(raw) - len(match[1])
+        raw, pattern = raw[prefix:], pattern[prefix:]
+      if (raw.startswith('!') and not re.search(r'[$`%]', pattern)
+          and (shell not in ('bash', 'sh', 'zsh') or not re.search(r'[*?\[{]', pattern))):
+        parsed[index] = (parsed[index][0], '')
   if shell in ('pwsh', 'powershell'):
     redirections = {index for index, boundary in starts if boundary in ('<', '>')}
     # PowerShell's filesystem providers expand -Path wildcards even in quotes.
@@ -791,7 +825,9 @@ def review(changes: list[turn_end.Change]) -> dict:
     except (OSError, subprocess.TimeoutExpired) as error:
       return {'decision': 'block', 'reason': f'Codex review failed: {type(error).__name__}'}
     if result.returncode:
-      return {'decision': 'block', 'reason': f'Codex review exited {result.returncode}; check login and retry.'}
+      errors = turn_end.trim_out(result.stderr)
+      reason = f'Codex review exited {result.returncode}.'
+      return {'decision': 'block', 'reason': reason + ('\n' + errors if errors else '')}
     text = output.read_text(encoding='utf-8').strip() if output.exists() else ''
   if text == turn_end.REVIEW_PASS:
     return {}

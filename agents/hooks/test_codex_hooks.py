@@ -732,6 +732,40 @@ class CodexHooksTests(unittest.TestCase):
         self.assertNotEqual(self.shell_read(command,
           tool_input={'cmd': command, 'shell': 'pwsh'}).get('decision'), 'deny')
 
+  def test_rg_negative_filters_do_not_select_secret_paths(self):
+    commands = (
+      "rg --files -g '!*.pem'", "rg --files -g'!*.pem'",
+      "rg --files --glob '!*.pem'", "rg --files --glob='!*.pem'",
+      "rg --files --iglob '!*.pem'", "rg --files --iglob='!*.pem'",
+      "rg --files -g '!**/.env'", "rg --files -g '!**/.env.*.local'",
+      "rg --files -g '!*.pem'; rg --files -g '!*.pem'",
+    )
+    for shell in ('pwsh', 'bash', 'cmd'):
+      for command in commands:
+        with self.subTest(shell=shell, command=command):
+          self.assertFalse(codex_hooks.shell_secret_paths(command, shell))
+
+  def test_rg_filter_exemptions_keep_secret_guards(self):
+    commands = (
+      "rg --files -g '*.pem'", "rg --files --glob='*.pem'",
+      "rg --files --iglob='*.pem'", "rg --files -g '!*.pem' key.pem",
+      "cat -g '!*.pem'", "rg --files -g; cat '!*.pem'",
+      "rg --files -g > '!*.pem'", "rg --files -g '!*.pem' > key.pem",
+      "rg --files -g '!*.pem'; cat key.pem",
+      "rg --files -g '!*.pem' | cat key.pem",
+      "rg --files -- -g '!*.pem'",
+      "rg -e -g '!*.pem'", "rg --sort -g '!*.pem'",
+      "rg --files --replace -g '!key.pem'", "rg --files -r -g '!key.pem'",
+      'rg --files -g "!$(cat key.pem)"',
+      'rg --files --glob="!$path.pem"',
+    )
+    for shell in ('pwsh', 'bash'):
+      for command in commands:
+        with self.subTest(shell=shell, command=command):
+          self.assertTrue(codex_hooks.shell_secret_paths(command, shell))
+    self.assertTrue(codex_hooks.shell_secret_paths('rg --files -g !*.pem', 'bash'))
+    self.assertTrue(codex_hooks.shell_secret_paths('rg --files --glob="!`cat key.pem`"', 'bash'))
+
   def test_shell_globs_keep_secret_guards(self):
     denied = (
       'cat .en?', 'cat *.pem', 'cat *', 'cat .*',
@@ -1151,6 +1185,16 @@ class CodexHooksTests(unittest.TestCase):
 
     with patch.object(codex_hooks.shutil, 'which', return_value='codex'), patch.object(codex_hooks.subprocess, 'run', side_effect=run):
       self.assertEqual(codex_hooks.review(changes), {})
+
+  def test_review_failure_preserves_bounded_stderr(self):
+    for stderr in ('invalid configuration', 'network connection failed',
+        'startup failed', 'x' * 5000 + '\r\nnetwork connection failed', ''):
+      with self.subTest(stderr=stderr[-40:]), patch.object(codex_hooks.shutil, 'which', return_value='codex'), patch.object(codex_hooks.subprocess, 'run', return_value=SimpleNamespace(returncode=7, stderr=stderr)):
+        result = codex_hooks.review([turn_end.Change('notes.txt')])
+        expected = 'Codex review exited 7.'
+        if stderr:
+          expected += '\n' + turn_end.trim_out(stderr)
+        self.assertEqual(result, {'decision': 'block', 'reason': expected})
 
   def test_review_isolated_and_empty_verdict_blocks(self):
     def run(args, **kwargs):
