@@ -182,6 +182,7 @@ def parse_event(raw: dict) -> Event:
 
 
 def workspace(event: Event) -> str:
+  root = os.getcwd()
   for value in (
     os.environ.get('GROK_WORKSPACE_ROOT', ''),
     os.environ.get('CLAUDE_PROJECT_DIR', ''),
@@ -189,22 +190,28 @@ def workspace(event: Event) -> str:
     event.cwd,
   ):
     if value:
-      return value
-  return os.getcwd()
+      root = value
+      break
+  try:
+    return ensure_git(root)
+  except NotGit:
+    return root
 
 
-def ensure_git(root: str) -> None:
+def ensure_git(root: str) -> str:
   try:
     out = subprocess.run(
-      ['git', 'rev-parse', '--is-inside-work-tree'],
+      ['git', 'rev-parse', '--show-toplevel'],
       cwd=root,
       check=False,
       capture_output=True,
     )
   except OSError as err:
     raise NotGit() from err
-  if out.returncode != 0 or out.stdout.decode('utf-8', errors='replace').strip() != 'true':
+  directory = out.stdout.decode('utf-8', errors='replace').strip()
+  if out.returncode != 0 or not directory:
     raise NotGit()
+  return os.path.normpath(directory)
 
 
 def write_snapshot(root: str, event: Event, stderr) -> int:

@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 from io import StringIO
+from unittest.mock import patch
 
 import turn_end
 
@@ -141,6 +142,49 @@ class ModuleTests(unittest.TestCase):
 
 
 class TurnTests(unittest.TestCase):
+  def test_nested_cwd_edit_requires_validation(self):
+    root = make_temp(self)
+    previous = os.getcwd()
+    self.addCleanup(os.chdir, previous)
+    git_init(root)
+    nested = os.path.join(root, 'svc', 'pkg')
+    os.makedirs(nested)
+    path = os.path.join(nested, 'page.go')
+    write(os.path.join(root, 'svc', 'go.mod'), 'module example\n\ngo 1.21\n')
+    write(path, 'package pkg\n')
+    git(root, 'add', '.')
+    git(root, 'commit', '-m', 'init')
+    for client in ('', 'codex', 'antigravity'):
+      for dirty in (False, True):
+        with self.subTest(client=client, dirty=dirty), patch.dict(os.environ):
+          os.environ.pop('GROK_WORKSPACE_ROOT', None)
+          os.environ.pop('CLAUDE_PROJECT_DIR', None)
+          before = 'package pkg\n' + ('\nfunc dirty() {}\n' if dirty else '')
+          write(path, before)
+          payload = json.dumps({
+            'sessionId': 'nested-' + client,
+            'promptId': str(dirty),
+            'cwd': nested,
+            'client': client,
+          })
+          out, err = StringIO(), StringIO()
+          self.assertEqual(turn_end.run(['snapshot'], StringIO(payload), out, err), 0, err.getvalue())
+          write(path, before + '\nfunc added() {}\n')
+          event = turn_end.parse_event(json.loads(payload))
+          resolved = turn_end.workspace(event)
+          changes = turn_end.load_changes(resolved, event)
+          self.assertEqual(len(changes), 1)
+          self.assertEqual(changes[0].path, 'svc/pkg/page.go')
+          self.assertEqual(changes[0].before, before)
+          self.assertFalse(changes[0].after_deleted)
+          commands = turn_end.test_cmds(resolved, changes)
+          self.assertEqual(len(commands), 2)
+          self.assertEqual(commands[0].directory, os.path.join(root, 'svc'))
+          with patch.object(turn_end.shutil, 'which', return_value=None):
+            out, err = StringIO(), StringIO()
+            self.assertEqual(turn_end.run(['test'], StringIO(payload), out, err), 0, err.getvalue())
+          self.assertIn('gopls is not on PATH', out.getvalue())
+
   def test_turn_edit_only(self):
     root = make_temp(self)
     git_init(root)
@@ -189,6 +233,7 @@ class TurnTests(unittest.TestCase):
     root = make_temp(self)
     previous = os.getcwd()
     self.addCleanup(os.chdir, previous)
+    self.assertEqual(turn_end.workspace(turn_end.Event(cwd=root)), root)
     out, err = StringIO(), StringIO()
     code = turn_end.run(['review'], StringIO(event_json(root)), out, err)
     self.assertEqual(code, 0)

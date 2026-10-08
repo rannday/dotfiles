@@ -8,8 +8,8 @@ sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 developer_instructions = """
-Route discovery/text search to fff; bounded generic known-file reads (including skills, configuration, documentation, and external files) and host filesystem operations to Desktop Commander; semantic code intelligence to Serena (read_file remains available); Go intelligence to gopls; local Git to gk; remote GitHub work to GitHub; library docs/browser work to Context7/Playwright.
-Native shell is for builds, tests, and other command execution, not default file discovery, text search, or generic inspection. Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Name an unavailable required tool before fallback; no recorded failure is required. Preserve task scope, authorization, and secret protections.
+Route names/text to fff; bounded generic reads and host filesystem work to Desktop Commander; semantic work to Serena (read_file available); Go to gopls; local Git to gk (directory required); remote GitHub to GitHub; OpenAI/Codex docs to openaiDeveloperDocs; other library docs to Context7; browser to Playwright. Follow AGENTS.md for routing procedures, permitted fallbacks, permissions, and secret protection.
+Discover exact server/tool names with bounded output. Name unavailable tools before permitted fallback; no recorded failure required. Shell is for commands/tests, not default inspection; no shell Git fallback. Preserve scope/authorization; protected .env variants and PEM paths stay unread/unedited. Context7: resolve-library-id, then focused query-docs (exact supplied IDs skip resolution).
 """
 
 [hooks.state.'C:\Users\rannd\.codex\hooks.json:user_prompt_submit:0:0']

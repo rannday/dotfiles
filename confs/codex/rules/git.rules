@@ -68,13 +68,13 @@ prefix_rule(
 prefix_rule(
     pattern = ["git", "checkout", "--"],
     decision = "forbidden",
-    justification = "Use the gk MCP server; shell git checkout is disabled.",
+    justification = "Restoration is user-controlled; shell git checkout is disabled.",
 )
 
 prefix_rule(
     pattern = ["git", "restore"],
     decision = "forbidden",
-    justification = "Use the gk MCP server; shell git restore is disabled.",
+    justification = "Restore is user-controlled and has no dedicated gk route; shell git restore is disabled.",
 )
 
 prefix_rule(
@@ -115,13 +115,13 @@ prefix_rule(
 prefix_rule(
     pattern = ["git", "rebase"],
     decision = "forbidden",
-    justification = "Use the gk MCP server; shell git rebase is disabled.",
+    justification = "Rebase is user-controlled and has no dedicated gk route; shell git rebase is disabled.",
 )
 
 prefix_rule(
     pattern = ["git", "merge"],
     decision = "forbidden",
-    justification = "Use the gk MCP server; shell git merge is disabled.",
+    justification = "Merge is user-controlled and has no dedicated gk route; shell git merge is disabled.",
 )
 
 prefix_rule(
@@ -193,5 +193,5 @@ prefix_rule(
 prefix_rule(
     pattern = [["git", "git.exe"], ["blame", "stash", "checkout", "switch"]],
     decision = "forbidden",
-    justification = "Use gk for local Git; unsupported merge/rebase require a user-managed workflow.",
+    justification = "Use gk for local Git; unsupported merge/rebase/restore remain user-controlled.",
 )

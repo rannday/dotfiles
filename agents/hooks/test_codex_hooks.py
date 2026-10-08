@@ -84,7 +84,7 @@ class CodexHooksTests(unittest.TestCase):
 
   def test_child_tool_to_subagent_stop_uses_child_turn_baseline(self):
     child = codex_hooks.normalize(dict(event(tool='apply_patch', cwd=self.temp.name), session_id='child', turn_id='child-turn'))
-    with patch.object(turn_end, 'ensure_git'), patch.object(turn_end, 'write_snapshot', return_value=0):
+    with patch.object(turn_end, 'ensure_git', return_value=self.temp.name), patch.object(turn_end, 'write_snapshot', return_value=0):
       codex_hooks.ensure_snapshot(child)
     stop = codex_hooks.normalize(dict(event('SubagentStop', agent_id='child', cwd='parent-workspace'), turn_id='parent-turn'))
     self.assertEqual(stop['sessionId'], child['sessionId'])
