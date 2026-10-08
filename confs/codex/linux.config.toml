@@ -14,6 +14,9 @@ Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbac
 [tui]
 theme = "gruvbox-dark"
 
+[notice]
+hide_rate_limit_model_nudge = true
+
 [hooks.state.'/home/rann/.codex/hooks.json:pre_tool_use:0:0']
 trusted_hash = "sha256:32c25b808bb86ebe4090a7e8d7f044e764164557f067da8cb8f76fe2b7eb0e36"
 

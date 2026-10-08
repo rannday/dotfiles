@@ -10,8 +10,12 @@ approvals_reviewer = "auto_review"
 developer_instructions = """
 Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 """
+
 [tui]
 theme = "gruvbox-dark"
+
+[notice]
+hide_rate_limit_model_nudge = true
 
 [hooks.state.'C:\Users\rannd\.codex\hooks.json:pre_tool_use:0:0']
 trusted_hash = "sha256:39627e2670d7dfa7ab0e994c122fbeab59af61120f80c2868990459a2550b323"
