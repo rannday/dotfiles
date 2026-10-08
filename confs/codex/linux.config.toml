@@ -48,8 +48,10 @@ writable_roots = [
   "/home/rann/go/pkg/mod",
 ]
 
-[mcp_servers.openaiDeveloperDocs]
-url = "https://developers.openai.com/mcp"
+[mcp_servers.fff]
+command = "fff-mcp"
+enabled = true
+default_tools_approval_mode = "approve"
 
 [mcp_servers.desktop-commander]
 default_tools_approval_mode = "prompt"
@@ -94,30 +96,85 @@ approval_mode = "approve"
 [mcp_servers.desktop-commander.tools.get_usage_stats]
 approval_mode = "approve"
 
-[mcp_servers.github]
-default_tools_approval_mode = "prompt"
-url = "https://api.githubcopilot.com/mcp/"
-bearer_token_env_var = "GITHUB_PAT_TOKEN"
-
-[mcp_servers.github.http_headers]
-X-MCP-Toolsets = "context,repos,issues,pull_requests,users,actions"
-X-MCP-Exclude-Tools = "merge_pull_request,delete_repository,delete_file,push_files,create_or_update_file,create_branch,create_repository,fork_repository,update_pull_request_branch,actions_run_trigger"
-
-# https://github.com/microsoft/playwright-mcp
-[mcp_servers.playwright]
-default_tools_approval_mode = "prompt"
-command = "npx"
-args = ["-y", "@playwright/mcp@latest"]
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
 bearer_token_env_var = "CONTEXT7_API_KEY"
 default_tools_approval_mode = "approve"
 
-[mcp_servers.fff]
-command = "fff-mcp"
-enabled = true
+[mcp_servers.gopls]
 default_tools_approval_mode = "approve"
+command = "gopls"
+args = ["mcp"]
+startup_timeout_sec = 90
+
+[mcp_servers.serena]
+default_tools_approval_mode = "prompt"
+command = "serena"
+args = ["start-mcp-server", "--project-from-cwd", "--context=/home/rann/.codex/serena-context.yml"]
+startup_timeout_sec = 90
+disabled_tools = ["activate_project"]
+
+[mcp_servers.serena.tools.initial_instructions]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.check_onboarding_performed]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.get_current_config]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.list_memories]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.read_memory]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.read_file]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.get_symbols_overview]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.find_symbol]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.find_referencing_symbols]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.find_declaration]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.find_implementations]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.get_diagnostics_for_file]
+approval_mode = "approve"
+
+[mcp_servers.serena.tools.safe_delete_symbol]
+approval_mode = "prompt"
+
+[mcp_servers.serena.tools.onboarding]
+approval_mode = "prompt"
+
+[mcp_servers.serena.tools.write_memory]
+approval_mode = "prompt"
+
+[mcp_servers.serena.tools.edit_memory]
+approval_mode = "prompt"
+
+[mcp_servers.serena.tools.rename_memory]
+approval_mode = "prompt"
+
+[mcp_servers.serena.tools.delete_memory]
+approval_mode = "prompt"
+
+#[mcp_servers.playwright]
+#default_tools_approval_mode = "prompt"
+#command = "npx"
+#args = ["-y", "@playwright/mcp@latest"]
 
 [mcp_servers.gk]
 default_tools_approval_mode = "prompt"
@@ -143,18 +200,44 @@ disabled_tools = [
   "repository_get_file_content",
 ]
 
-[mcp_servers.gopls]
-default_tools_approval_mode = "approve"
-command = "gopls"
-args = ["mcp"]
-startup_timeout_sec = 90
+[mcp_servers.gk.tools.git_status]
+approval_mode = "approve"
 
-[mcp_servers.serena]
+[mcp_servers.gk.tools.git_log_or_diff]
+approval_mode = "approve"
+
+[mcp_servers.gk.tools.git_blame]
+approval_mode = "approve"
+
+[mcp_servers.gk.tools.git_graph]
+approval_mode = "approve"
+
+[mcp_servers.gk.tools.git_fetch]
+approval_mode = "approve"
+
+[mcp_servers.gk.tools.git_branch]
+approval_mode = "prompt"
+
+[mcp_servers.gk.tools.git_checkout]
+approval_mode = "prompt"
+
+[mcp_servers.gk.tools.git_stash]
+approval_mode = "prompt"
+
+[mcp_servers.gk.tools.git_pull]
+approval_mode = "prompt"
+
+[mcp_servers.gk.tools.git_worktree]
+approval_mode = "prompt"
+
+[mcp_servers.github]
 default_tools_approval_mode = "prompt"
-command = "serena"
-args = ["start-mcp-server", "--project-from-cwd", "--context=/home/rann/.codex/serena-context.yml"]
-startup_timeout_sec = 90
-disabled_tools = ["activate_project"]
+url = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var = "GITHUB_PAT_TOKEN"
+
+[mcp_servers.github.http_headers]
+X-MCP-Toolsets = "context,repos,issues,pull_requests,users,actions"
+X-MCP-Exclude-Tools = "merge_pull_request,delete_repository,delete_file,push_files,create_or_update_file,create_branch,create_repository,fork_repository,update_pull_request_branch,actions_run_trigger"
 
 [mcp_servers.github.tools.get_commit]
 approval_mode = "approve"
@@ -236,90 +319,6 @@ approval_mode = "approve"
 
 [mcp_servers.github.tools.pull_request_read]
 approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_status]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_log_or_diff]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_blame]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_graph]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_fetch]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.initial_instructions]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.check_onboarding_performed]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.get_current_config]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.list_memories]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.read_memory]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.read_file]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.get_symbols_overview]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_symbol]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_referencing_symbols]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_declaration]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_implementations]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.get_diagnostics_for_file]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.safe_delete_symbol]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.onboarding]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.write_memory]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.edit_memory]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.rename_memory]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.delete_memory]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_branch]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_checkout]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_stash]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_pull]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_worktree]
-approval_mode = "prompt"
 
 #[mcp_servers.bitburner]
 #command = "bbmcp"
