@@ -12,6 +12,9 @@ Route names/text to fff; bounded generic reads and host filesystem work to Deskt
 Discover exact server/tool names with bounded output. Name unavailable tools before permitted fallback; no recorded failure required. Shell is for commands/tests, not default inspection; no shell Git fallback. Preserve scope/authorization; protected .env variants and PEM paths stay unread/unedited. Context7: resolve-library-id, then focused query-docs (exact supplied IDs skip resolution).
 """
 
+[tui]
+theme = "gruvbox-dark"
+
 [hooks.state.'/home/rann/.codex/hooks.json:user_prompt_submit:0:0']
 trusted_hash = "sha256:82808d702868c4bf07e1949271563bc5997d06147d9e7d7a456044352ed93818"
 
