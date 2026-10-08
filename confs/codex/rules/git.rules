@@ -1,197 +1,38 @@
-# ============================================================
-# GIT COMMANDS
-# ============================================================
-
-# ============================================================
-# SAFE READ-ONLY OPERATIONS
-# ============================================================
-
+# Safe reads use normal sandbox permissions. No blanket allow bypasses the sandbox.
+# Rules match command prefixes; global options and indirect shell forms still need
+# native approval review. GitKraken is preferred in AGENTS.md.
 prefix_rule(
-    pattern = ["git", "status"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git status is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "diff"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git diff is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "log"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git log is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "show"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git show is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "branch"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git branch is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "remote", "-v"],
-    decision = "allow",
-    justification = "Reading remotes is safe.",
-)
-
-
-# ============================================================
-# LOCAL WORKTREE / INDEX MUTATION
-# ============================================================
-
-prefix_rule(
-    pattern = ["git", "add"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git add is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "rm"],
+    pattern = [["git", "git.exe"], ["add", "rm", "mv", "checkout", "switch", "restore", "commit", "rebase", "merge", "reset", "stash", "fetch", "pull", "push", "clone", "tag", "worktree", "branch"]],
     decision = "prompt",
-    justification = "Removing tracked files requires review.",
+    justification = "Git mutations require review; branch and tag listings share this prefix.",
 )
 
 prefix_rule(
-    pattern = ["git", "mv"],
+    pattern = [["git", "git.exe"], "remote", ["set-url", "add", "remove", "rename", "set-head", "set-branches", "prune", "update"]],
     decision = "prompt",
-    justification = "Moving tracked files requires review.",
-)
-
-prefix_rule(
-    pattern = ["git", "checkout", "--"],
-    decision = "forbidden",
-    justification = "Restoration is user-controlled; shell git checkout is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "restore"],
-    decision = "forbidden",
-    justification = "Restore is user-controlled and has no dedicated gk route; shell git restore is disabled.",
+    justification = "Remote changes require review and must preserve SSH aliases.",
 )
 
 prefix_rule(
     pattern = [["git", "git.exe"], "clean"],
     decision = "forbidden",
-    justification = "Git clean can delete untracked work and is forbidden.",
-)
-
-prefix_rule(
-    pattern = ["git", "clean", "-fdx"],
-    decision = "forbidden",
-    justification = "Git clean with ignored files is forbidden.",
-)
-
-
-# ============================================================
-# HISTORY / BRANCH MUTATION
-# ============================================================
-
-prefix_rule(
-    pattern = [["git", "git.exe"], "reset"],
-    decision = "prompt",
-    justification = "Reset requires review; the hard-reset deny takes precedence.",
-)
-
-prefix_rule(
-    pattern = [["git", "git.exe"], "remote", "set-url"],
-    decision = "prompt",
-    justification = "Changing a remote URL requires review and must preserve SSH aliases.",
-)
-
-prefix_rule(
-    pattern = ["git", "commit"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git commit is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "rebase"],
-    decision = "forbidden",
-    justification = "Rebase is user-controlled and has no dedicated gk route; shell git rebase is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "merge"],
-    decision = "forbidden",
-    justification = "Merge is user-controlled and has no dedicated gk route; shell git merge is disabled.",
+    justification = "Git clean can delete untracked work.",
 )
 
 prefix_rule(
     pattern = [["git", "git.exe"], "reset", "--hard"],
     decision = "forbidden",
-    justification = "Hard reset discards local work and is forbidden.",
+    justification = "Hard reset discards local work.",
 )
 
 prefix_rule(
-    pattern = ["git", "tag"],
-    decision = "prompt",
-    justification = "Creating or modifying tags requires review.",
-)
-
-prefix_rule(
-    pattern = ["git", "stash", "drop"],
+    pattern = [["git", "git.exe"], "stash", ["drop", "clear"]],
     decision = "forbidden",
-    justification = "Use the gk MCP server; shell git stash is disabled.",
+    justification = "Deleting saved work is forbidden.",
 )
 
 prefix_rule(
-    pattern = ["git", "stash", "clear"],
+    pattern = [["git", "git.exe"], "push", ["--force", "--force-with-lease", "-f"]],
     decision = "forbidden",
-    justification = "Use the gk MCP server; shell git stash is disabled.",
-)
-
-
-# ============================================================
-# REMOTE OPERATIONS
-# ============================================================
-
-prefix_rule(
-    pattern = ["git", "fetch"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git fetch is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "pull"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git pull is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "push"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git push is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "push", "--force"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git push is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "push", "--force-with-lease"],
-    decision = "forbidden",
-    justification = "Use the gk MCP server; shell git push is disabled.",
-)
-
-prefix_rule(
-    pattern = ["git", "clone"],
-    decision = "prompt",
-    justification = "Cloning requires network access and writes files.",
-)
-
-# Local Git routes through gk. The hook also covers git.exe and git -C.
-prefix_rule(
-    pattern = [["git", "git.exe"], ["blame", "stash", "checkout", "switch"]],
-    decision = "forbidden",
-    justification = "Use gk for local Git; unsupported merge/rebase/restore remain user-controlled.",
+    justification = "Force pushes can rewrite remote history.",
 )

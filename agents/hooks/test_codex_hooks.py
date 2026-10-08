@@ -7,12 +7,10 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import codex_hooks
 import tool_gate
-import turn_end
 
 
 def event(name='PreToolUse', tool='', **fields):
@@ -54,33 +52,43 @@ class CodexHooksTests(unittest.TestCase):
       self.assertEqual(stderr.getvalue(), '')
     self.assertEqual(list(Path(self.temp.name).iterdir()), [])
 
-  def test_malformed_continuation_state_is_ignored(self):
-    state = tool_gate.state_path('codex-parent', 'session', 'continuation.json')
-    for value in ([], ['state'], None, True, 7, 'state',
-      {'turn': 'turn-1'}, {'origin': [], 'turn': 'turn-1', 'reason': 'Retry'},
-      {'origin': 'old', 'turn': 'turn-1', 'reason': 'Retry', 'repeats': 'two'},
-      *({'origin': 'turn-1', 'turn': 'turn-1', 'reason': 'Retry',
-        'key': 'same-diff', 'failure': ['hook', 'Retry'], 'repeats': count}
-        for count in ('two', None, True, -1, 1.5))):
-      with self.subTest(value=value):
-        state.write_text(json.dumps(value), encoding='utf-8')
-        self.assertEqual(codex_hooks.normalize(event('Stop'))['promptId'], 'turn-1')
-        with patch.object(codex_hooks, 'continuation_key', return_value='same-diff'):
-          result = codex_hooks.remember_block(codex_hooks.normalize(event('Stop')),
-            {'decision': 'block', 'reason': 'Retry'})
-        self.assertEqual(result, {'decision': 'block', 'reason': 'Retry'})
-        self.assertEqual(json.loads(state.read_text(encoding='utf-8'))['repeats'], 1)
+  def test_retired_lifecycle_events_are_quiet_and_stateless(self):
+    for name in ('UserPromptSubmit', 'Stop', 'SubagentStop'):
+      with self.subTest(name=name), patch.object(codex_hooks, 'normalize', side_effect=AssertionError('unexpected normalization')):
+        self.assertEqual(codex_hooks.dispatch(event(name, agent_id='child')), {})
+    self.assertEqual(list(Path(self.temp.name).iterdir()), [])
 
-  def test_malformed_latest_state_is_ignored(self):
-    state = tool_gate.state_path('codex-child', 'session', 'latest.json')
-    for value in ([], ['state'], None, True, 7, 'state',
-      {'prompt': 'child-turn'}, {'prompt': [], 'cwd': self.temp.name},
-      {'prompt': 'child-turn', 'cwd': None}):
+  def test_ordinary_tools_are_stateless_without_routing_prerequisites(self):
+    tools = (
+      ('exec_command', {'cmd': 'git -C repo status'}),
+      ('exec_command', {'cmd': 'rg marker src'}),
+      ('grep', {'pattern': 'marker'}),
+      ('apply_patch', {'command': '*** Update File: docs.md\n*** Update File: pkg/main.go'}),
+      ('apply_patch', {'command': '*** Add File: pkg/new.go\n+package pkg'}),
+      ('mcp__serena__replace_symbol_body', {'relative_path': 'main.go'}),
+      ('mcp__serena__rename_symbol', {'relative_path': 'main.go'}),
+      ('mcp__gopls__go_diagnostics', {}),
+      ('mcp__fff__ffgrep', {}),
+    )
+    for tool, data in tools:
+      for name in ('PreToolUse', 'PostToolUse'):
+        with self.subTest(tool=tool, name=name):
+          self.assertEqual(codex_hooks.dispatch(event(name, tool, tool_input=data)), {})
+    self.assertEqual(list(Path(self.temp.name).iterdir()), [])
+
+  def test_review_child_environment_does_not_bypass_safety(self):
+    with patch.dict(os.environ, {'TURN_END_CHILD': '1'}):
+      result = codex_hooks.dispatch(event(tool='exec_command', tool_input={'cmd': 'cat .env'}))
+    self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
+
+  def test_malformed_desktop_process_state_keeps_unknown_shell_guards(self):
+    state = tool_gate.state_path('codex-parent', 'session', 'desktop-process-shells.json')
+    for value in ([], None, True, 7, 'state', {'11': []}, {'11': None}, {'11': 7}, {'11': {}}):
       with self.subTest(value=value):
         state.write_text(json.dumps(value), encoding='utf-8')
-        parsed = codex_hooks.normalize(event('SubagentStop', agent_id='child', cwd=self.temp.name))
-        self.assertEqual(parsed['promptId'], 'turn-1')
-        self.assertEqual(parsed['cwd'], self.temp.name)
+        result = self.policy(event(tool='mcp__desktop_commander__interact_with_process',
+          tool_input={'pid': 11, 'input': r"cat $'.en\x76'"}))
+        self.assertEqual(result['decision'], 'deny')
 
   def test_shell_reads_need_no_prior_mcp_call_or_project_marker(self):
     for command in ('Get-Content docs.txt', 'gc docs.txt', 'cat docs.txt',
@@ -106,16 +114,19 @@ class CodexHooksTests(unittest.TestCase):
     shared_dir.mkdir(parents=True)
     source = Path(__file__).parent
     shutil.copyfile(source / 'codex_hooks.py', shared_dir / 'codex_hooks.py')
-    for name in ('tool_gate.py', 'turn_end.py'):
+    for name in ('tool_gate.py',):
       shutil.copyfile(source / name, shared_dir / name)
       (stale_dir / name).write_text('raise RuntimeError("stale local hook")', encoding='utf-8')
+    for name in ('turn_end.py', 'grok_review.py'):
+      (stale_dir / name).write_text('raise RuntimeError("retired review dependency")', encoding='utf-8')
     result = subprocess.run([
       sys.executable, '-B', '-c',
       ('import pathlib,runpy,sys; '
       'sys.path.insert(0,sys.argv[3]); '
       'loaded=runpy.run_path(str(pathlib.Path(sys.argv[1])/"codex_hooks.py")); '
       'assert all(pathlib.Path(loaded[name].__file__).parent == pathlib.Path(sys.argv[2]) '
-      'for name in ("tool_gate", "turn_end"))'),
+      'for name in ("tool_gate",)); '
+      'assert "turn_end" not in sys.modules and "grok_review" not in sys.modules'),
       str(shared_dir), str(shared_dir), str(stale_dir),
     ], capture_output=True, text=True, check=False)
     self.assertEqual(result.returncode, 0, result.stderr)
@@ -124,24 +135,9 @@ class CodexHooksTests(unittest.TestCase):
     parsed = codex_hooks.normalize(event(tool='mcp__fff__ffgrep'))
     self.assertEqual(tool_gate.ids_of(parsed), ('codex-parent', 'turn-1'))
     self.assertEqual(parsed['toolName'], 'fff__grep')
-    self.assertEqual(turn_end.parse_event(parsed).prompt_id, 'turn-1')
-
-  def test_subagent_stop_uses_child_identity(self):
-    parsed = codex_hooks.normalize(event('SubagentStop', agent_id='child'))
-    self.assertEqual(parsed['sessionId'], 'codex-child')
-
-  def test_child_tool_to_subagent_stop_uses_child_turn_baseline(self):
-    child = codex_hooks.normalize(dict(event(tool='apply_patch', cwd=self.temp.name), session_id='child', turn_id='child-turn'))
-    with patch.object(turn_end, 'ensure_git', return_value=self.temp.name), patch.object(turn_end, 'write_snapshot', return_value=0):
-      codex_hooks.ensure_snapshot(child)
-    stop = codex_hooks.normalize(dict(event('SubagentStop', agent_id='child', cwd='parent-workspace'), turn_id='parent-turn'))
-    self.assertEqual(stop['sessionId'], child['sessionId'])
-    self.assertEqual(stop['promptId'], 'child-turn')
-    self.assertEqual(stop['cwd'], self.temp.name)
 
   def test_bash_git_has_no_routing_block_in_codex_shape(self):
-    with patch.object(codex_hooks, 'ensure_snapshot', return_value={}):
-      result = codex_hooks.dispatch(event(tool='Bash', tool_input={'command': 'git -C repo diff'}))
+    result = codex_hooks.dispatch(event(tool='Bash', tool_input={'command': 'git -C repo diff'}))
     self.assertNotEqual(result.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
 
   def test_exec_command_cmd_is_not_a_policy_bypass(self):
@@ -228,56 +224,12 @@ class CodexHooksTests(unittest.TestCase):
         result = self.policy(event(tool='exec_command', tool_input={'cmd': command}))
         self.assertNotEqual(result.get('decision'), 'deny')
 
-  def test_apply_patch_multiple_paths_require_go_refs(self):
-    command = '*** Begin Patch\n*** Update File: docs.md\n*** Update File: pkg/main.go\n*** End Patch'
-    result = self.policy(event(tool='apply_patch', tool_input={'command': command}))
-    self.assertEqual(result['decision'], 'deny')
 
   def test_patch_move_and_delete_paths(self):
     self.assertEqual(codex_hooks.patch_paths('*** Delete File: old.go\n*** Move to: new.go'), ['old.go', 'new.go'])
 
-  def test_new_go_file_does_not_require_nonexistent_refs(self):
-    command = '*** Begin Patch\n*** Add File: pkg/new.go\n+package pkg\n*** End Patch'
-    self.assertEqual(self.policy(event(tool='apply_patch', tool_input={'command': command})), {})
-    self.policy(event('PostToolUse', 'apply_patch', tool_input={'command': command}))
-    result = codex_hooks.stop(codex_hooks.normalize(event('Stop')))
-    self.assertEqual(result['decision'], 'block')
-    self.assertIn('diagnostics', result['reason'])
-    self.assertNotIn('symbol_references', result['reason'])
-
-  def test_go_edit_invalidates_prior_diagnostics(self):
-    self.policy(event('PostToolUse', 'mcp__gopls__go_symbol_references'))
-    command = '*** Update File: pkg/main.go\n@@\n-x\n+y'
-    self.assertEqual(self.policy(event(tool='apply_patch', tool_input={'command': command})), {})
-    self.policy(event('PostToolUse', 'apply_patch', tool_input={'command': command}))
-    self.policy(event('PostToolUse', 'mcp__gopls__go_diagnostics'))
-    self.assertEqual(tool_gate.handle(codex_hooks.normalize(event('Stop'))), {})
-    self.policy(event('PostToolUse', 'apply_patch', tool_input={'command': command}))
-    self.assertEqual(tool_gate.handle(codex_hooks.normalize(event('Stop')))['decision'], 'block')
-
-  def test_failed_mcp_refs_do_not_count(self):
-    self.policy(event('PostToolUse', 'mcp__gopls__go_symbol_references', tool_response={'isError': True}))
-    result = self.policy(event(tool='mcp__serena__replace_symbol_body', tool_input={'relative_path': 'main.go'}))
-    self.assertEqual(result['decision'], 'deny')
-
-  def test_failed_patch_does_not_record_edit(self):
-    self.policy(event('PostToolUse', 'apply_patch', tool_input={'command': '*** Update File: main.go'}, tool_response={'error': 'failed'}))
-    self.assertEqual(tool_gate.handle(codex_hooks.normalize(event('Stop'))), {})
-
-  def test_serena_go_rename_requires_refs_without_routing_block(self):
-    self.assertEqual(self.policy(event(tool='mcp__serena__rename_symbol', tool_input={'relative_path': 'main.go'}))['decision'], 'deny')
-    self.policy(event('PostToolUse', 'mcp__gopls__go_symbol_references'))
-    renamed = event(tool='mcp__serena__rename_symbol', tool_input={'relative_path': 'main.go'})
-    self.assertEqual(self.policy(renamed)['decision'], 'allow')
-    self.policy(dict(renamed, hook_event_name='PostToolUse'))
-    self.assertIn('diagnostics', self.policy(event('Stop'))['reason'])
-    self.policy(event('PostToolUse', 'mcp__gopls__go_diagnostics'))
-    self.assertEqual(self.policy(event('Stop')), {})
-    self.assertEqual(self.policy(event(tool='mcp__serena__rename_symbol', tool_input={'relative_path': 'main.py'}))['decision'], 'allow')
-
   def test_github_checkout_read_has_no_routing_block(self):
-    with patch.object(tool_gate, 'local_remotes', return_value={('user', 'repo')}):
-      result = self.policy(event(tool='mcp__github__get_file_contents', tool_input={'owner': 'user', 'repo': 'repo'}))
+    result = self.policy(event(tool='mcp__github__get_file_contents', tool_input={'owner': 'user', 'repo': 'repo'}))
     self.assertNotEqual(result.get('decision'), 'deny')
 
   def test_search_routing_has_no_blocks_or_nudges(self):
@@ -1167,185 +1119,6 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
       for server in ('desktop_commander', 'desktop-commander'):
         for tool in ('start_process', 'interact_with_process', 'kill_process'):
           self.assertRegex('mcp__' + server + '__' + tool, matcher)
-
-  def test_continuation_keeps_baseline_and_next_user_turn_resets(self):
-    original = codex_hooks.normalize(event('Stop'))
-    codex_hooks.remember_block(original, {'decision': 'block', 'reason': 'Fix tests.'})
-    continued = codex_hooks.normalize(dict(event('UserPromptSubmit', prompt='Fix tests.'), turn_id='turn-2'))
-    self.assertEqual(continued['promptId'], 'turn-1')
-    self.assertEqual(codex_hooks.normalize(dict(event('PostToolUse'), turn_id='turn-2'))['promptId'], 'turn-1')
-    new = codex_hooks.normalize(dict(event('UserPromptSubmit', prompt='New task.'), turn_id='turn-3'))
-    self.assertEqual(new['promptId'], 'turn-3')
-
-  def test_repeated_identical_block_stops_with_incomplete_warning(self):
-    raw = codex_hooks.normalize(event('Stop'))
-    block = {'decision': 'block', 'reason': 'Tests failed.'}
-    self.assertEqual(codex_hooks.remember_block(raw, block), block)
-    self.assertEqual(codex_hooks.remember_block(raw, block), block)
-    result = codex_hooks.remember_block(raw, block)
-    self.assertFalse(result['continue'])
-    self.assertIn('Validation incomplete', result['systemMessage'])
-
-  def test_wrapped_rephrased_blocks_keep_baseline_and_stop_after_three(self):
-    original = codex_hooks.normalize(event('Stop'))
-    reasons = ('gone.txt:L1: Diff omitted. Provide contents.', 'gone.txt:L1: Deletion cannot be reviewed.', 'gone.txt:L1: Provide the deletion diff.')
-    with patch.object(codex_hooks, 'continuation_key', return_value='same-diff'):
-      for number, reason in enumerate(reasons, 1):
-        result = codex_hooks.remember_block(original, {'decision': 'block', 'reason': reason, '_failure_stage': 'review'})
-        if number < 3:
-          self.assertEqual(result['decision'], 'block')
-          prompt = '<hook_prompt hook_run_id="stop:4:hooks.json">' + reason + '</hook_prompt>'
-          continued = codex_hooks.normalize(dict(event('UserPromptSubmit', prompt=prompt), turn_id=f'turn-{number + 1}'))
-          self.assertEqual(continued['promptId'], 'turn-1')
-          original = codex_hooks.normalize(dict(event('Stop'), turn_id=f'turn-{number + 1}'))
-          self.assertEqual(original['promptId'], 'turn-1')
-        else:
-          self.assertFalse(result['continue'])
-          self.assertIn('Validation incomplete', result['systemMessage'])
-    new = codex_hooks.normalize(dict(event('UserPromptSubmit', prompt='Please fix the hook.'), turn_id='new-turn'))
-    self.assertEqual(new['promptId'], 'new-turn')
-
-  def test_retry_budget_resets_when_diff_changes(self):
-    raw = codex_hooks.normalize(event('Stop'))
-    block = {'decision': 'block', 'reason': 'Tests failed.'}
-    with patch.object(codex_hooks, 'continuation_key', side_effect=['old', 'old', 'new', 'new', 'new']):
-      for _ in range(4):
-        self.assertEqual(codex_hooks.remember_block(raw, block), block)
-      self.assertFalse(codex_hooks.remember_block(raw, block)['continue'])
-
-  def test_retry_budget_resets_when_failure_changes(self):
-    raw = codex_hooks.normalize(event('Stop'))
-    with patch.object(codex_hooks, 'continuation_key', return_value='same-diff'):
-      for stage, reason in (('diagnostics', 'Fix diagnostics.'), ('test', 'Fix tests.'),
-        ('review', 'a.py:L1: Fix logic.'), ('review', 'a.py:L2: Fix another issue.')):
-        block = {'decision': 'block', 'reason': reason, '_failure_stage': stage}
-        for _ in range(2):
-          result = codex_hooks.remember_block(raw, block)
-          self.assertEqual(result, {'decision': 'block', 'reason': reason})
-      final_block = {'decision': 'block', 'reason': 'a.py:L2: Fix another issue.',
-        '_failure_stage': 'review'}
-      self.assertFalse(codex_hooks.remember_block(raw, final_block)['continue'])
-
-  def test_retry_budget_resets_for_different_test_failures(self):
-    raw = codex_hooks.normalize(event('Stop'))
-    with patch.object(codex_hooks, 'continuation_key', return_value='same-diff'):
-      for reason in ('Test A failed.', 'Test B failed.'):
-        for _ in range(2):
-          result = codex_hooks.remember_block(raw, {'decision': 'block', 'reason': reason, '_failure_stage': 'test'})
-          self.assertEqual(result['decision'], 'block')
-
-  def test_continuation_key_changes_with_deleted_contents(self):
-    raw = codex_hooks.normalize(event('Stop', cwd=self.temp.name))
-    changes = [turn_end.Change('gone.txt', 'old\n', '', after_deleted=True)]
-    with patch.object(turn_end, 'load_changes', return_value=changes):
-      first = codex_hooks.continuation_key(raw)
-      changes[0] = turn_end.Change('gone.txt', 'different\n', '', after_deleted=True)
-      self.assertNotEqual(first, codex_hooks.continuation_key(raw))
-
-  def test_recursive_review_child_skips_all_hooks(self):
-    with patch.dict(os.environ, {'TURN_END_CHILD': '1'}), patch.object(codex_hooks, 'normalize') as normalize:
-      self.assertEqual(codex_hooks.dispatch(event('Stop')), {})
-      normalize.assert_not_called()
-
-  def test_format_block_prevents_tests_and_review(self):
-    raw = codex_hooks.normalize(event('Stop'))
-    with patch.object(tool_gate, 'handle', return_value={}), patch.object(codex_hooks, 'run_stage', return_value={'decision': 'block', 'reason': 'formatted'}) as stage, patch.object(codex_hooks, 'review') as review:
-      self.assertEqual(codex_hooks.stop(raw)['reason'], 'formatted')
-      self.assertEqual(stage.call_args.args[0], 'format')
-      stage.assert_called_once()
-      review.assert_not_called()
-
-  def test_shutdown_skips_entire_stop_runner(self):
-    for reason in ('shutdown', 'channel_closed', 'cancelled'):
-      with patch.object(codex_hooks, 'run_stage') as stage, patch.object(codex_hooks, 'review') as review:
-        self.assertEqual(codex_hooks.stop(codex_hooks.normalize(event('Stop', reason=reason))), {})
-        stage.assert_not_called()
-        review.assert_not_called()
-
-  def test_protected_paths_never_read_by_codex_snapshot(self):
-    with patch.object(turn_end, 'git', return_value=b'?? .env\0?? keys/server.pem\0?? notes.txt\0'), patch.object(turn_end, 'read_bytes', return_value=b'notes') as read:
-      files = turn_end.capture(self.temp.name, protect_secrets=True)
-      self.assertEqual(list(files), ['notes.txt'])
-      read.assert_called_once_with(os.path.join(self.temp.name, 'notes.txt'))
-
-  def test_protected_only_diff_skips_model_review(self):
-    with patch.object(codex_hooks, 'run_stage', return_value={}), patch.object(turn_end, 'ensure_git'), patch.object(turn_end, 'load_changes', return_value=[turn_end.Change('.env', 'secret', 'new secret')]), patch.object(codex_hooks, 'review') as review:
-      self.assertEqual(codex_hooks.stop(codex_hooks.normalize(event('Stop'))), {})
-      review.assert_not_called()
-
-  def test_same_diff_caches_passes_new_edit_invalidates(self):
-    raw = codex_hooks.normalize(event('Stop'))
-    changes = [turn_end.Change('notes.txt', 'old', 'new')]
-    with patch.object(tool_gate, 'handle', return_value={}), patch.object(turn_end, 'ensure_git'), patch.object(turn_end, 'load_changes', return_value=changes), patch.object(codex_hooks, 'run_stage', return_value={}) as stage, patch.object(codex_hooks, 'review', return_value={}) as review:
-      self.assertEqual(codex_hooks.stop(raw), {})
-      self.assertEqual(codex_hooks.stop(raw), {})
-      review.assert_called_once()
-      self.assertEqual([c.args[0] for c in stage.call_args_list], ['format', 'test', 'format'])
-      changes[0].after = 'newer'
-      self.assertEqual(codex_hooks.stop(raw), {})
-      self.assertEqual(review.call_count, 2)
-
-  def test_subagent_skips_model_review(self):
-    raw = codex_hooks.normalize(event('SubagentStop', agent_id='child'))
-    with patch.object(tool_gate, 'handle', return_value={}), patch.object(turn_end, 'ensure_git'), patch.object(turn_end, 'load_changes', return_value=[turn_end.Change('main.go')]), patch.object(codex_hooks, 'run_stage', return_value={}), patch.object(codex_hooks, 'review') as review:
-      self.assertEqual(codex_hooks.stop(raw), {})
-      review.assert_not_called()
-
-  def test_no_snapshot_skips_review(self):
-    with patch.object(tool_gate, 'handle', return_value={}), patch.object(codex_hooks, 'run_stage', return_value={}), patch.object(turn_end, 'ensure_git'), patch.object(turn_end, 'load_changes', side_effect=turn_end.NoSnapshot), patch.object(codex_hooks, 'review') as review:
-      self.assertEqual(codex_hooks.stop(codex_hooks.normalize(event('Stop'))), {})
-      review.assert_not_called()
-
-  def test_review_sends_complete_large_diff_through_stdin(self):
-    changes = [
-      turn_end.Change(
-        path=f'large-{number}.txt', before='old\n',
-        after=''.join(f'large-{number}-line-{index:04d}\n' for index in range(1200)),
-      )
-      for number in range(2)
-    ]
-    expected = ''.join(turn_end.change_diff(change) for change in changes)
-    self.assertGreater(len(expected), 32767)
-
-    def run(args, **kwargs):
-      self.assertEqual(args[-1], '-')
-      self.assertTrue(kwargs['input'].endswith(expected))
-      self.assertNotIn(kwargs['input'], args)
-      self.assertNotIn('Truncated:', kwargs['input'])
-      self.assertNotIn('Omitted:', kwargs['input'])
-      output = Path(args[args.index('--output-last-message') + 1])
-      output.write_text('No issues.', encoding='utf-8')
-      return SimpleNamespace(returncode=0)
-
-    with patch.object(codex_hooks.shutil, 'which', return_value='codex'), patch.object(codex_hooks.subprocess, 'run', side_effect=run):
-      self.assertEqual(codex_hooks.review(changes), {})
-
-  def test_review_failure_preserves_bounded_stderr(self):
-    for stderr in ('invalid configuration', 'network connection failed',
-        'startup failed', 'x' * 5000 + '\r\nnetwork connection failed', ''):
-      with self.subTest(stderr=stderr[-40:]), patch.object(codex_hooks.shutil, 'which', return_value='codex'), patch.object(codex_hooks.subprocess, 'run', return_value=SimpleNamespace(returncode=7, stderr=stderr)):
-        result = codex_hooks.review([turn_end.Change('notes.txt')])
-        expected = 'Codex review exited 7.'
-        if stderr:
-          expected += '\n' + turn_end.trim_out(stderr)
-        self.assertEqual(result, {'decision': 'block', 'reason': expected})
-
-  def test_review_isolated_and_empty_verdict_blocks(self):
-    def run(args, **kwargs):
-      self.assertIn('--ignore-user-config', args)
-      self.assertIn('--ephemeral', args)
-      self.assertIn('features.hooks=false', args)
-      self.assertEqual(kwargs['env']['TURN_END_CHILD'], '1')
-      self.assertEqual(args[args.index('--sandbox') + 1], 'read-only')
-      output = Path(args[args.index('--output-last-message') + 1])
-      output.write_text(self.verdict, encoding='utf-8')
-      return SimpleNamespace(returncode=0)
-    with patch.object(codex_hooks.shutil, 'which', return_value='codex'), patch.object(codex_hooks.subprocess, 'run', side_effect=run):
-      self.verdict = 'No issues.'
-      self.assertEqual(codex_hooks.review([turn_end.Change('notes.txt')]), {})
-      self.verdict = ''
-      self.assertEqual(codex_hooks.review([turn_end.Change('notes.txt')])['decision'], 'block')
-
 
 if __name__ == '__main__':
   unittest.main()

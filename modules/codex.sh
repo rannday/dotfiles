@@ -34,7 +34,7 @@ module_codex() {
   require_dir "$RULES_DIR"
   require_dir "$CREW_DIR"
   require_file "$HOOK_JSON"
-  for hook_name in tool_gate.py turn_end.py codex_hooks.py; do
+  for hook_name in tool_gate.py codex_hooks.py; do
     require_file "$SHARED_HOOKS/$hook_name"
   done
 
@@ -46,7 +46,7 @@ module_codex() {
   install_user_file "$CONFIG_FILE" "$CODEX_HOME/config.toml" 0644
   install_user_file "$SERENA_CONTEXT" "$CODEX_HOME/serena-context.yml" 0644
   install_user_file "$HOOK_JSON" "$CODEX_HOME/hooks.json" 0644
-  for hook_name in tool_gate.py turn_end.py codex_hooks.py; do
+  for hook_name in tool_gate.py codex_hooks.py; do
     install_user_file "$SHARED_HOOKS/$hook_name" "$SHARED_HOOK_TARGET/$hook_name" 0644
   done
   for agent_file in "$CREW_DIR"/*.toml; do

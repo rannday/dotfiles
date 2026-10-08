@@ -8,14 +8,28 @@ import io
 import json
 import os
 from pathlib import Path
-import re
-import shutil
-import subprocess
 import sys
-import tempfile
 
 import tool_gate
 import turn_end
+
+
+def read_continuation(state: Path) -> dict:
+  try:
+    pending = json.loads(state.read_text(encoding='utf-8'))
+  except (OSError, ValueError):
+    return {}
+  if not isinstance(pending, dict):
+    return {}
+  for field in ('origin', 'reason'):
+    if field in pending and not isinstance(pending[field], str):
+      return {}
+  if 'turn' in pending and (not isinstance(pending['turn'], (str, int)) or isinstance(pending['turn'], bool)):
+    return {}
+  repeats = pending.get('repeats', 0)
+  if not isinstance(repeats, int) or isinstance(repeats, bool) or repeats < 0:
+    return {}
+  return pending
 
 
 def normalize(raw: dict, event_name: str = '') -> dict:
@@ -35,12 +49,9 @@ def normalize(raw: dict, event_name: str = '') -> dict:
   turn = str(raw.get('stepIdx') or raw.get('promptId') or '')
 
   state = tool_gate.state_path(session, 'session', 'continuation.json')
-  try:
-    pending = json.loads(state.read_text(encoding='utf-8'))
-  except (OSError, ValueError):
-    pending = {}
+  pending = read_continuation(state)
 
-  if pending and pending.get('turn') == turn:
+  if pending and str(pending.get('turn', '')) == turn:
     turn = pending.get('origin', turn)
 
   event['sessionId'] = session
@@ -88,15 +99,12 @@ def normalize(raw: dict, event_name: str = '') -> dict:
 def remember_block(event: dict, result: dict) -> dict:
   if result.get('decision') == 'continue':
     state = tool_gate.state_path(event['sessionId'], 'session', 'continuation.json')
-    try:
-      previous = json.loads(state.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-      previous = {}
+    previous = read_continuation(state)
     reason = str(result.get('reason') or '')
     repeats = previous.get('repeats', 0) + 1 if previous.get('reason') == reason else 1
     state.write_text(json.dumps({
       'origin': event['promptId'],
-      'turn': event.get('stepIdx', event.get('promptId', '')),
+      'turn': str(event.get('stepIdx', event.get('promptId', ''))),
       'reason': reason,
       'repeats': repeats,
     }), encoding='utf-8')
@@ -128,19 +136,7 @@ def tool_policy(event: dict) -> dict:
     return {'decision': 'deny', 'reason': 'Protected .env or PEM path. Use a redacted example file.'}
   if name == 'PostToolUse' and event.get('raw', {}).get('error'):
     return {}
-  if tool == tool_gate.GK_BRANCH:
-    return {}
-  result = tool_gate.handle(event)
-  if tool in tool_gate.FFF_GREP and result:
-    session, prompt = tool_gate.ids_of(event)
-    try:
-      count = tool_gate.state_path(session, prompt, 'fff-grep.count').read_text(encoding='utf-8')
-    except (OSError, ValueError):
-      count = '0'
-    if count == '3':
-      return tool_gate.note('Three text searches. Read the owning file or delegate broad localization to cavecrew-investigator.')
-    return {}
-  return result
+  return {}
 
 
 def snapshot_event(event: dict) -> turn_end.Event:
@@ -187,9 +183,6 @@ def changes_key(changes: list[turn_end.Change]) -> str:
 
 def stop(event: dict) -> dict:
   session, prompt = tool_gate.ids_of(event)
-  if prompt and tool_gate.state_path(session, prompt, 'gopls-edited').exists():
-    if not tool_gate.state_path(session, prompt, 'gopls-diag').exists():
-      return {'decision': 'continue', 'reason': tool_gate.GO_DIAG_BLOCK}
   result = run_stage('format', event)
   if result:
     return result
@@ -206,14 +199,17 @@ def stop(event: dict) -> dict:
   if not changes:
     return {}
   digest = changes_key(changes)
-  for mode in ('test', 'review'):
-    cache = tool_gate.state_path(session, prompt, mode + '.passed')
-    if cache.exists() and cache.read_text(encoding='utf-8') == digest:
-      continue
-    result = run_stage(mode, event)
-    if result:
-      return result
-    cache.write_text(digest, encoding='utf-8')
+  cache = tool_gate.state_path(session, prompt, 'test.passed')
+  try:
+    cached = cache.read_text(encoding='utf-8')
+  except (OSError, UnicodeError):
+    cached = ''
+  if cached == digest:
+    return {}
+  result = run_stage('test', event)
+  if result:
+    return result
+  cache.write_text(digest, encoding='utf-8')
   return {}
 
 

@@ -9,88 +9,20 @@ from unittest.mock import patch
 import turn_end
 
 
-class ReviewTests(unittest.TestCase):
-  def test_review_uses_api_key_and_fake_runner(self):
-    root = self._dirty_note()
-    seen = {}
-    def fake(prompt, env, cwd):
-      seen['prompt'] = prompt
-      seen['child'] = env.get('TURN_END_CHILD')
-      seen['key'] = env.get('XAI_API_KEY')
-      return 'No issues.\n', None
-    previous = turn_end.run_review
-    turn_end.run_review = fake
-    self.addCleanup(setattr, turn_end, 'run_review', previous)
-    previous_key = os.environ.get('XAI_API_KEY')
-    os.environ['XAI_API_KEY'] = 'test-key'
-    def restore_key():
-      if previous_key is None:
-        os.environ.pop('XAI_API_KEY', None)
-      else:
-        os.environ['XAI_API_KEY'] = previous_key
-    self.addCleanup(restore_key)
-    out, err = StringIO(), StringIO()
-    code = turn_end.run(['review'], StringIO(event_json(root, session='rev', prompt='1', cwd=root)), out, err)
-    self.assertEqual(code, 0, err.getvalue())
-    self.assertEqual(out.getvalue(), '')
-    self.assertEqual(seen['child'], '1')
-    self.assertEqual(seen['key'], 'test-key')
-    self.assertIn('notes.txt', seen['prompt'])
-    self.assertNotIn('test-key', out.getvalue())
-
-  def test_review_blocks_on_finding(self):
-    root = self._dirty_note()
-    def fake(prompt, env, cwd):
-      return 'notes.txt:L1: bug. fix.\n', None
-    previous = turn_end.run_review
-    turn_end.run_review = fake
-    self.addCleanup(setattr, turn_end, 'run_review', previous)
-    os.environ['XAI_API_KEY'] = 'test-key'
-    self.addCleanup(os.environ.pop, 'XAI_API_KEY', None)
-    out, err = StringIO(), StringIO()
-    code = turn_end.run(['review'], StringIO(event_json(root, session='rev', prompt='1', cwd=root)), out, err)
-    self.assertEqual(code, 0, err.getvalue())
-    self.assertIn('notes.txt:L1: bug. fix.', out.getvalue())
-    self.assertNotIn('test-key', out.getvalue())
-
-  def _dirty_note(self) -> str:
+class ModuleTests(unittest.TestCase):
+  def test_protected_paths_never_read_by_snapshot(self):
     root = make_temp(self)
-    previous = os.getcwd()
-    self.addCleanup(os.chdir, previous)
-    git_init(root)
-    path = os.path.join(root, 'notes.txt')
-    write(path, 'ok\n')
-    git(root, 'add', 'notes.txt')
-    git(root, 'commit', '-m', 'init')
-    event = turn_end.Event(session_id='rev', prompt_id='1', workspace_root=root, cwd=root)
-    self.assertEqual(turn_end.write_snapshot(root, event, StringIO()), 0)
-    write(path, 'changed\n')
-    return root
+    with patch.object(turn_end, 'git', return_value=b'?? .env\0?? keys/server.pem\0?? notes.txt\0'), patch.object(turn_end, 'read_bytes', return_value=b'notes') as read:
+      files = turn_end.capture(root, protect_secrets=True)
+      self.assertEqual(list(files), ['notes.txt'])
+      read.assert_called_once_with(os.path.join(root, 'notes.txt'))
 
-  def test_subagent_skips_review(self):
-    root = make_temp(self)
-    previous = os.getcwd()
-    self.addCleanup(os.chdir, previous)
-    git_init(root)
-    path = os.path.join(root, 'notes.txt')
-    write(path, 'ok\n')
-    git(root, 'add', 'notes.txt')
-    git(root, 'commit', '-m', 'init')
-    event = turn_end.Event(session_id='rev', prompt_id='1', workspace_root=root, cwd=root)
-    self.assertEqual(turn_end.write_snapshot(root, event, StringIO()), 0)
-    write(path, 'changed\n')
-    previous_hook = os.environ.get('GROK_HOOK_EVENT')
-    os.environ['GROK_HOOK_EVENT'] = 'subagent_stop'
-    def restore():
-      if previous_hook is None:
-        os.environ.pop('GROK_HOOK_EVENT', None)
-      else:
-        os.environ['GROK_HOOK_EVENT'] = previous_hook
-    self.addCleanup(restore)
-    out, err = StringIO(), StringIO()
-    code = turn_end.run(['review'], StringIO(event_json(root, session='rev', prompt='1', cwd=root)), out, err)
-    self.assertEqual(code, 0, err.getvalue())
-    self.assertEqual(out.getvalue(), '')
+  def test_stale_snapshot_cannot_restore_protected_reads(self):
+    snapshot = turn_end.Snapshot(files={'.env': turn_end.FileState(hash='old'), 'key.pem': turn_end.FileState(hash='old')})
+    for client in ('grok', 'antigravity'):
+      with self.subTest(client=client), patch.object(turn_end, 'read_snapshot', return_value=snapshot), patch.object(turn_end, 'capture', return_value={}), patch.object(turn_end, 'worktree_state') as read:
+        self.assertEqual(turn_end.load_changes('fixture', turn_end.Event(client=client)), [])
+        read.assert_not_called()
 
   def test_child_env_skips_gates(self):
     previous = os.environ.get('TURN_END_CHILD')
@@ -101,14 +33,41 @@ class ReviewTests(unittest.TestCase):
       else:
         os.environ['TURN_END_CHILD'] = previous
     self.addCleanup(restore)
-    for mode in ('format', 'test', 'review'):
+    for mode in ('format', 'test'):
       out, err = StringIO(), StringIO()
       code = turn_end.run([mode], StringIO('{"reason":"end_turn"}'), out, err)
       self.assertEqual(code, 0, mode)
       self.assertEqual(out.getvalue(), '', mode)
 
+  def test_review_mode_is_not_available(self):
+    out, err = StringIO(), StringIO()
+    code = turn_end.run(['review'], StringIO('{}'), out, err)
+    self.assertEqual(code, 1)
+    self.assertNotIn('|review', err.getvalue())
 
-class ModuleTests(unittest.TestCase):
+  def test_malformed_snapshot_shapes_report_errors(self):
+    shapes = [
+      [],
+      {'files': []},
+      {'prompt': 1},
+      {'files': {'page.go': []}},
+      {'files': {'page.go': {'hash': []}}},
+      {'files': {'page.go': {'content': {}}}},
+      {'files': {'page.go': {'deleted': 'false'}}},
+    ]
+    for raw in shapes:
+      with self.subTest(raw=raw), patch.object(turn_end, 'read_bytes', return_value=json.dumps(raw).encode()):
+        with self.assertRaisesRegex(OSError, 'parse snapshot:'):
+          turn_end.read_snapshot('fixture', turn_end.Event())
+
+  def test_valid_snapshot_shape_preserves_file_state(self):
+    raw = {'files': {'page.go': {'hash': 'digest', 'content': 'package main\n', 'deleted': False}}, 'prompt': 'task'}
+    with patch.object(turn_end, 'read_bytes', return_value=json.dumps(raw).encode()):
+      snapshot = turn_end.read_snapshot('fixture', turn_end.Event())
+    self.assertEqual(snapshot.prompt, 'task')
+    self.assertEqual(snapshot.files['page.go'].content, 'package main\n')
+    self.assertFalse(snapshot.files['page.go'].deleted)
+
   def test_modules_touched(self):
     root = make_temp(self)
     module = os.path.join(root, 'svc')
@@ -227,7 +186,7 @@ class TurnTests(unittest.TestCase):
     self.assertFalse(turn_end.skip_gate('test', turn_end.Event(reason='')))
     self.assertFalse(turn_end.skip_gate('snapshot', turn_end.Event(reason='max_turns')))
     os.environ['GROK_HOOK_EVENT'] = 'subagent_stop'
-    self.assertFalse(turn_end.skip_gate('review', turn_end.Event(reason='max_turns')))
+    self.assertFalse(turn_end.skip_gate('test', turn_end.Event(reason='max_turns')))
 
   def test_skip_non_git(self):
     root = make_temp(self)
@@ -235,7 +194,7 @@ class TurnTests(unittest.TestCase):
     self.addCleanup(os.chdir, previous)
     self.assertEqual(turn_end.workspace(turn_end.Event(cwd=root)), root)
     out, err = StringIO(), StringIO()
-    code = turn_end.run(['review'], StringIO(event_json(root)), out, err)
+    code = turn_end.run(['test'], StringIO(event_json(root)), out, err)
     self.assertEqual(code, 0)
     self.assertEqual(out.getvalue(), '')
 
@@ -319,7 +278,7 @@ class TurnTests(unittest.TestCase):
     git_init(root)
     out, err = StringIO(), StringIO()
     code = turn_end.run(
-      ['review'],
+      ['test'],
       StringIO(event_json(root, session='missing', prompt='none')),
       out,
       err,
@@ -357,99 +316,6 @@ def event_json(root: str, session: str = 's', prompt: str = 'p', cwd: str | None
   if cwd is not None:
     payload['cwd'] = cwd
   return json.dumps(payload)
-
-
-class ReviewPromptTests(unittest.TestCase):
-  def test_small_diff_lists_file_and_hunk(self):
-    prompt = turn_end.review_prompt([
-      turn_end.Change(path='a.go', before='func old()\n', after='func new()\n'),
-    ])
-    self.assertIn('Files: a.go', prompt)
-    self.assertIn('func new()', prompt)
-    self.assertNotIn('Omitted:', prompt)
-    self.assertNotIn('Truncated:', prompt)
-
-  def test_per_file_cap_keeps_later_file(self):
-    big = 'x\n' * (turn_end.REVIEW_FILE_CAP + 40)
-    prompt = turn_end.review_prompt([
-      turn_end.Change(path='big.go', before='', after=big),
-      turn_end.Change(path='late.go', before='a\n', after='late-marker\n'),
-    ])
-    self.assertIn('Files: big.go, late.go', prompt)
-    self.assertIn('Truncated: big.go', prompt)
-    self.assertIn('big.go hunks omitted', prompt)
-    self.assertIn('late-marker', prompt)
-    self.assertNotIn('Omitted:', prompt)
-
-  def test_budget_names_omitted_paths(self):
-    previous_cap = turn_end.REVIEW_CAP
-    previous_file = turn_end.REVIEW_FILE_CAP
-    turn_end.REVIEW_CAP = 40
-    turn_end.REVIEW_FILE_CAP = 200
-    self.addCleanup(setattr, turn_end, 'REVIEW_CAP', previous_cap)
-    self.addCleanup(setattr, turn_end, 'REVIEW_FILE_CAP', previous_file)
-    prompt = turn_end.review_prompt([
-      turn_end.Change(path='a.go', before='a\n', after='aa\n'),
-      turn_end.Change(path='b.go', before='b\n', after='bb-marker\n'),
-    ])
-    self.assertIn('Files: a.go, b.go', prompt)
-    self.assertIn('Omitted: b.go', prompt)
-    self.assertNotIn('bb-marker', prompt)
-    self.assertIn('aa', prompt)
-
-  def test_large_file_diff_and_later_file_are_complete(self):
-    big = ''.join(f'large-line-{index:04d}\n' for index in range(400))
-    changes = [
-      turn_end.Change(path='big.go', before='', after=big),
-      turn_end.Change(path='late.go', before='a\n', after='late-marker\n'),
-    ]
-    expected = ''.join(turn_end.change_diff(change) for change in changes)
-    self.assertGreater(len(turn_end.change_diff(changes[0])), 3000)
-    prompt = turn_end.review_prompt(changes, complete=True)
-    self.assertIn('Files: big.go, late.go', prompt)
-    self.assertTrue(prompt.endswith(expected))
-    self.assertIn('+large-line-0399\n', prompt)
-    self.assertIn('+late-marker\n', prompt)
-    self.assertNotIn('Truncated:', prompt)
-    self.assertNotIn('Omitted:', prompt)
-
-  def test_multiple_large_diffs_exceeding_old_budget_are_complete(self):
-    changes = [
-      turn_end.Change(
-        path=f'file-{number}.go',
-        before='old-marker\n',
-        after=''.join(f'file-{number}-line-{index:04d}\n' for index in range(400)),
-      )
-      for number in range(4)
-    ]
-    diffs = [turn_end.change_diff(change) for change in changes]
-    self.assertTrue(all(len(diff) > 3000 for diff in diffs))
-    expected = ''.join(diffs)
-    self.assertGreater(len(expected), 12000)
-    prompt = turn_end.review_prompt(changes, complete=True)
-    self.assertTrue(prompt.endswith(expected))
-    for number in range(4):
-      self.assertIn(f'+file-{number}-line-0399\n', prompt)
-    self.assertNotIn('Truncated:', prompt)
-    self.assertNotIn('Omitted:', prompt)
-
-  def test_deleted_text_file_has_full_deletion_diff(self):
-    for complete in (False, True):
-      with self.subTest(complete=complete):
-        prompt = turn_end.review_prompt([
-          turn_end.Change(path='gone.go', before='first\nsecond\n', after='', after_deleted=True),
-        ], complete=complete)
-        self.assertIn('Files: gone.go', prompt)
-        self.assertIn('--- gone.go\n+++ /dev/null\n', prompt)
-        self.assertIn('-first\n-second\n', prompt)
-        self.assertNotIn('binary', prompt)
-
-  def test_deleted_binary_file_still_omits_content(self):
-    prompt = turn_end.review_prompt([
-      turn_end.Change(path='gone.bin', before='private\0data', after='', after_deleted=True),
-    ], complete=True)
-    self.assertIn('gone.bin: binary diff omitted', prompt)
-    self.assertNotIn('private', prompt)
 
 
 if __name__ == '__main__':

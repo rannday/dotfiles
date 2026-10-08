@@ -19,7 +19,7 @@
 | Remote issues, PRs, checks | GitHub; paginate, select fields |
 | Library docs / browser | Context7 / Playwright |
 
-Discover schemas as needed. Search briefly, then read owning ranges; avoid whole-file dumps. If a required server is unavailable, name it. fff may fall back to `rg`; local Git stays on gk. Shell Git is blocked except remote inspection/fix and operations without a gk route allowed by the execution rules.
+These routes are preferences. Discover schemas as needed. Search briefly, then read owning ranges; avoid whole-file dumps. Native tools are available when useful. If a preferred server is unavailable, name it and use a bounded fallback. Prefer gk for local Git; native Git inspection is available. Consequential changes still need authorization.
 
 Serena starts from cwd with `--context=antigravity`. Do not activate another project. Report missing `.serena/project.yml`; creation/onboarding and memory writes need authorization. `.go` renames stay on gopls.
 
@@ -31,16 +31,17 @@ For Go changes, follow the Go sequence: `gopls__go_workspace` first, `go_symbol_
 
 ## Delegation and skills
 
-- Broad localization or an unsuccessful bounded search: `cavecrew-investigator`. Exact-file work and known facts stay inline.
-- Known one/two-file edit: `cavecrew-builder`. Larger work stays with the parent. Assign disjoint file ownership; children never delegate.
-- Requested bug scan: `cavecrew-reviewer`. Return evidence. Native review owns a PR/branch process; `caveman-review` only controls finding text.
+- Delegate when it improves the task; trivial known work stays inline.
+- For broad localization or an unsuccessful bounded search, consider `cavecrew-investigator`.
+- For a known one/two-file edit, consider `cavecrew-builder`. Larger work stays with the parent. Assign disjoint file ownership; children never delegate.
+- For a requested bug scan, consider `cavecrew-reviewer`. Return evidence. Native review owns a PR/branch process; `caveman-review` only controls finding text.
 - Use a named agent only if the spawn tool supports it; otherwise put its compact contract in the prompt.
-- Choose one primary workflow: `investigate-first`, `surgical-patch`, `lean-build`, `safe-refactor`, `migration`, or `verify-and-stop`. Read once; switch at a phase change.
+- Load applicable skills only when needed. Choose one primary workflow: `investigate-first`, `surgical-patch`, `lean-build`, `safe-refactor`, `migration`, or `verify-and-stop`. Read once; switch at a phase change.
 - Route `caveman-explore` to the native investigator. `caveman-commit` writes only the message; `caveman-compress` needs a named target and a working runner.
 - Cloud/learn/setup/optimization skills load only for an actual request and available CLI/account/report prerequisites. Do not wrap Antigravity in a proxy or invent credentials.
 
 ## Finish
 
-Lifecycle hooks load from `~/.gemini/config/hooks.json`. Fix hook blocks; three identical failures halt with validation incomplete.
+Lifecycle hooks load from `~/.gemini/config/hooks.json`. Formatting and tests remain; provider review is disabled. Fix named hook failures and run task-relevant checks before completion.
 
 State changed files, checks, skipped validation, and platform limits. Re-read is not a test. Stop when acceptance passes.

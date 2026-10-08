@@ -1,99 +1,5 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "run_terminal_command",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "^(search_replace|write|serena__replace_symbol_body|serena__insert_before_symbol|serena__insert_after_symbol|serena__rename_symbol|serena__safe_delete_symbol|serena__replace_content|serena__replace_in_files)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "^(github__get_file_contents|github__search_code)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "^gk__git_branch$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "grep|read_file|run_terminal_command",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "serena-hooks remind --client=grok",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "fff__grep|fff__multi_grep",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "^(search_replace|write|serena__replace_symbol_body|serena__insert_before_symbol|serena__insert_after_symbol|serena__rename_symbol|serena__safe_delete_symbol|serena__replace_content|serena__replace_in_files)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "^gopls__go_(symbol_references|diagnostics)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -106,15 +12,6 @@
       }
     ],
     "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
       {
         "hooks": [
           {
@@ -137,15 +34,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/turn_end.py\" review",
-            "timeout": 300
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "serena-hooks cleanup --client=grok",
             "timeout": 5
           }
@@ -153,15 +41,6 @@
       }
     ],
     "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "py -3 \"${USERPROFILE}/.agents/hooks/bin/tool_gate.py\"",
-            "timeout": 10
-          }
-        ]
-      },
       {
         "hooks": [
           {

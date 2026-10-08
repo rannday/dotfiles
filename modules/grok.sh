@@ -55,6 +55,7 @@ install_grok_hooks() {
   hook_json=$CONF_DIR/grok/linux.hooks.json
   turn_end=$CONF_DIR/../agents/hooks/turn_end.py
   tool_gate=$CONF_DIR/../agents/hooks/tool_gate.py
+  grok_review=$CONF_DIR/../agents/hooks/grok_review.py
   voice=$CONF_DIR/grok/rules/voice.md
   grok_hooks=$HOME/.grok/hooks
   shared_hook_target=$HOME/.agents/hooks/bin
@@ -63,6 +64,7 @@ install_grok_hooks() {
   require_file "$hook_json"
   require_file "$turn_end"
   require_file "$tool_gate"
+  require_file "$grok_review"
   require_file "$voice"
 
   if ! command -v python3 >/dev/null 2>&1; then
@@ -74,6 +76,7 @@ install_grok_hooks() {
   log_info "Installing Grok hooks"
   install_user_file "$turn_end" "$shared_hook_target/turn_end.py" 0644
   install_user_file "$tool_gate" "$shared_hook_target/tool_gate.py" 0644
+  install_user_file "$grok_review" "$shared_hook_target/grok_review.py" 0644
   install_user_file "$hook_json" "$grok_hooks/hooks.json" 0644
   install_user_file "$voice" "$grok_rules/voice.md" 0644
   if [ -f "$grok_hooks/turn_end.json" ]; then

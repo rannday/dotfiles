@@ -62,6 +62,7 @@ function Install-GrokHooks
   $sharedHooks = Join-Path (Split-Path $script:CONF_DIR -Parent) 'agents\hooks'
   $turnEnd = Join-Path $sharedHooks 'turn_end.py'
   $toolGate = Join-Path $sharedHooks 'tool_gate.py'
+  $grokReview = Join-Path $sharedHooks 'grok_review.py'
   $voice = Join-Path $sourceRoot 'rules\voice.md'
   $grokHooks = Join-Path $HOME '.grok\hooks'
   $sharedTarget = Join-Path $HOME '.agents\hooks\bin'
@@ -70,6 +71,7 @@ function Install-GrokHooks
   Assert-File $hookJson
   Assert-File $turnEnd
   Assert-File $toolGate
+  Assert-File $grokReview
   Assert-File $voice
 
   if (-not (Get-Command py -ErrorAction SilentlyContinue))
@@ -81,6 +83,7 @@ function Install-GrokHooks
   Write-Log 'Installing Grok hooks'
   Install-UserFile -Source $turnEnd -Destination (Join-Path $sharedTarget 'turn_end.py')
   Install-UserFile -Source $toolGate -Destination (Join-Path $sharedTarget 'tool_gate.py')
+  Install-UserFile -Source $grokReview -Destination (Join-Path $sharedTarget 'grok_review.py')
   Install-UserFile -Source $hookJson -Destination (Join-Path $grokHooks 'hooks.json')
   Install-UserFile -Source $voice -Destination (Join-Path $grokRules 'voice.md')
   $staleHookJson = Join-Path $grokHooks 'turn_end.json'

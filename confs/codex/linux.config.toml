@@ -14,20 +14,8 @@ Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbac
 [tui]
 theme = "gruvbox-dark"
 
-[hooks.state.'/home/rann/.codex/hooks.json:user_prompt_submit:0:0']
-trusted_hash = "sha256:82808d702868c4bf07e1949271563bc5997d06147d9e7d7a456044352ed93818"
-
 [hooks.state.'/home/rann/.codex/hooks.json:pre_tool_use:0:0']
 trusted_hash = "sha256:32c25b808bb86ebe4090a7e8d7f044e764164557f067da8cb8f76fe2b7eb0e36"
-
-[hooks.state.'/home/rann/.codex/hooks.json:post_tool_use:0:0']
-trusted_hash = "sha256:f62225f79bb2a1f0a7717194c58cc6b4e1a8ef926079cd914511fe8093ed2f41"
-
-[hooks.state.'/home/rann/.codex/hooks.json:stop:0:0']
-trusted_hash = "sha256:d07932911e1e812828daef9ecd30b9fb2aef9d1700427901ef074642df9b2ce5"
-
-[hooks.state.'/home/rann/.codex/hooks.json:subagent_stop:0:0']
-trusted_hash = "sha256:e059d7a23ceae2de853ced4349becb8001907bcf1e5f93a06173d218b7e58239"
 
 [features]
 fast_mode = false
@@ -69,32 +57,16 @@ disabled_tools = [
 ]
 
 # Observational tools only; mutations and ambiguous tools retain prompt approval.
-[mcp_servers.desktop-commander.tools.read_file]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.read_multiple_files]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.list_directory]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.get_file_info]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.list_processes]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.list_sessions]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.read_process_output]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.get_config]
-approval_mode = "approve"
-
-[mcp_servers.desktop-commander.tools.get_usage_stats]
-approval_mode = "approve"
+[mcp_servers.desktop-commander.tools]
+read_file = { approval_mode = "approve" }
+read_multiple_files = { approval_mode = "approve" }
+list_directory = { approval_mode = "approve" }
+get_file_info = { approval_mode = "approve" }
+list_processes = { approval_mode = "approve" }
+list_sessions = { approval_mode = "approve" }
+read_process_output = { approval_mode = "approve" }
+get_config = { approval_mode = "approve" }
+get_usage_stats = { approval_mode = "approve" }
 
 [mcp_servers.openaiDeveloperDocs]
 url = "https://developers.openai.com/mcp"
@@ -105,10 +77,20 @@ bearer_token_env_var = "CONTEXT7_API_KEY"
 default_tools_approval_mode = "approve"
 
 [mcp_servers.gopls]
-default_tools_approval_mode = "approve"
+default_tools_approval_mode = "prompt"
 command = "gopls"
 args = ["mcp"]
 startup_timeout_sec = 90
+
+# Inspection and checks are approved; rename requests and unknown tools prompt.
+[mcp_servers.gopls.tools]
+go_diagnostics = { approval_mode = "approve" }
+go_file_context = { approval_mode = "approve" }
+go_package_api = { approval_mode = "approve" }
+go_search = { approval_mode = "approve" }
+go_symbol_references = { approval_mode = "approve" }
+go_vulncheck = { approval_mode = "approve" }
+go_workspace = { approval_mode = "approve" }
 
 [mcp_servers.serena]
 default_tools_approval_mode = "prompt"
@@ -117,59 +99,19 @@ args = ["start-mcp-server", "--project-from-cwd", "--context=/home/rann/.codex/s
 startup_timeout_sec = 90
 disabled_tools = ["activate_project"]
 
-[mcp_servers.serena.tools.initial_instructions]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.check_onboarding_performed]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.get_current_config]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.list_memories]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.read_memory]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.read_file]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.get_symbols_overview]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_symbol]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_referencing_symbols]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_declaration]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.find_implementations]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.get_diagnostics_for_file]
-approval_mode = "approve"
-
-[mcp_servers.serena.tools.safe_delete_symbol]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.onboarding]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.write_memory]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.edit_memory]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.rename_memory]
-approval_mode = "prompt"
-
-[mcp_servers.serena.tools.delete_memory]
-approval_mode = "prompt"
+[mcp_servers.serena.tools]
+initial_instructions = { approval_mode = "approve" }
+check_onboarding_performed = { approval_mode = "approve" }
+get_current_config = { approval_mode = "approve" }
+list_memories = { approval_mode = "approve" }
+read_memory = { approval_mode = "approve" }
+read_file = { approval_mode = "approve" }
+get_symbols_overview = { approval_mode = "approve" }
+find_symbol = { approval_mode = "approve" }
+find_referencing_symbols = { approval_mode = "approve" }
+find_declaration = { approval_mode = "approve" }
+find_implementations = { approval_mode = "approve" }
+get_diagnostics_for_file = { approval_mode = "approve" }
 
 #[mcp_servers.playwright]
 #default_tools_approval_mode = "prompt"
@@ -200,35 +142,11 @@ disabled_tools = [
   "repository_get_file_content",
 ]
 
-[mcp_servers.gk.tools.git_status]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_log_or_diff]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_blame]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_graph]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_fetch]
-approval_mode = "approve"
-
-[mcp_servers.gk.tools.git_branch]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_checkout]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_stash]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_pull]
-approval_mode = "prompt"
-
-[mcp_servers.gk.tools.git_worktree]
-approval_mode = "prompt"
+[mcp_servers.gk.tools]
+git_status = { approval_mode = "approve" }
+git_log_or_diff = { approval_mode = "approve" }
+git_blame = { approval_mode = "approve" }
+git_graph = { approval_mode = "approve" }
 
 [mcp_servers.github]
 default_tools_approval_mode = "prompt"
@@ -239,86 +157,34 @@ bearer_token_env_var = "GITHUB_PAT_TOKEN"
 X-MCP-Toolsets = "context,repos,issues,pull_requests,users,actions"
 X-MCP-Exclude-Tools = "merge_pull_request,delete_repository,delete_file,push_files,create_or_update_file,create_branch,create_repository,fork_repository,update_pull_request_branch,actions_run_trigger"
 
-[mcp_servers.github.tools.get_commit]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_file_contents]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_job_logs]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_label]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_latest_release]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_me]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_release_by_tag]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_tag]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_team_members]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.get_teams]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_branches]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_commits]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_issue_fields]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_issue_types]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_issues]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_pull_requests]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_releases]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_repository_collaborators]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.list_tags]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.search_code]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.search_commits]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.search_issues]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.search_pull_requests]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.search_repositories]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.search_users]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.issue_read]
-approval_mode = "approve"
-
-[mcp_servers.github.tools.pull_request_read]
-approval_mode = "approve"
+[mcp_servers.github.tools]
+get_commit = { approval_mode = "approve" }
+get_file_contents = { approval_mode = "approve" }
+get_job_logs = { approval_mode = "approve" }
+get_label = { approval_mode = "approve" }
+get_latest_release = { approval_mode = "approve" }
+get_me = { approval_mode = "approve" }
+get_release_by_tag = { approval_mode = "approve" }
+get_tag = { approval_mode = "approve" }
+get_team_members = { approval_mode = "approve" }
+get_teams = { approval_mode = "approve" }
+list_branches = { approval_mode = "approve" }
+list_commits = { approval_mode = "approve" }
+list_issue_fields = { approval_mode = "approve" }
+list_issue_types = { approval_mode = "approve" }
+list_issues = { approval_mode = "approve" }
+list_pull_requests = { approval_mode = "approve" }
+list_releases = { approval_mode = "approve" }
+list_repository_collaborators = { approval_mode = "approve" }
+list_tags = { approval_mode = "approve" }
+search_code = { approval_mode = "approve" }
+search_commits = { approval_mode = "approve" }
+search_issues = { approval_mode = "approve" }
+search_pull_requests = { approval_mode = "approve" }
+search_repositories = { approval_mode = "approve" }
+search_users = { approval_mode = "approve" }
+issue_read = { approval_mode = "approve" }
+pull_request_read = { approval_mode = "approve" }
 
 #[mcp_servers.bitburner]
 #command = "bbmcp"

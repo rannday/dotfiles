@@ -10,7 +10,7 @@
 
 ## Tools
 
-| Work | Route |
+| Work | Preferred tool |
 |---|---|
 | Names and text / discovery / search | fff; short query, bounded matches |
 | Generic known-file reads | Desktop Commander; bounded ranges, absolute paths |
@@ -22,7 +22,7 @@
 | OpenAI / Codex docs | openaiDeveloperDocs |
 | Other library docs / browser | Context7 / Playwright |
 
-Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Desktop Commander reads include skills, configuration, documentation, and external files; use absolute paths and bounded ranges (`offset` is zero-based; `length` limits lines). Avoid whole-file dumps. Name an unavailable required tool before using a permitted fallback: fff to bounded `rg`, Desktop Commander to bounded native/shell reads. No recorded failure is required. Fallbacks retain scope, permissions, secret protection, and execution rules. Local Git stays on gk; its absence does not permit shell Git. Merge, rebase, and restore remain user-controlled; gk has no dedicated route for them. Shell exceptions are only remote inspection/fix and other operations explicitly permitted by execution rules.
+Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Desktop Commander reads include skills, configuration, documentation, and external files; use absolute paths and bounded ranges (`offset` is zero-based; `length` limits lines). Avoid whole-file dumps. If a preferred tool is unavailable, name it and use a bounded native alternative. Tool choice does not widen scope, permissions, or secret access. Prefer gk for local Git; safe shell reads use normal sandbox permissions. Git mutations, merge, rebase, and restore require user authorization.
 
 Serena's `read_file` remains available for semantic work; generic reads belong to Desktop Commander. Prefer native editing for ordinary textual edits and native shell for builds, tests, and other commands, not default discovery/search/inspection. Use Desktop Commander process execution for host-level situations with a concrete advantage. Mutating host actions require authorization.
 
@@ -40,11 +40,11 @@ For Linux/POSIX tests on Windows, read the WSL tests section in `~/.codex/workfl
 
 ## Delegation and skills
 
-- Broad localization or an unsuccessful bounded search: `cavecrew-investigator`. Exact-file work and known facts stay inline.
-- Known one/two-file edit: `cavecrew-builder`. Larger work stays with the parent. Assign disjoint file ownership; children never delegate.
+- Consider delegation for broad localization or an unsuccessful bounded search: `cavecrew-investigator`. Exact-file work and known facts stay inline.
+- Consider delegation for a known one/two-file edit: `cavecrew-builder`. Larger work stays with the parent. Assign disjoint file ownership; children never delegate.
 - Requested bug scan: `cavecrew-reviewer` owns evidence and coverage; `caveman-review` only formats findings. PR/branch actions need their own authorization.
 - Use a named agent only if the spawn tool supports it; otherwise put its compact contract in the prompt.
-- Choose one primary workflow: `investigate-first`, `surgical-patch`, `lean-build`, `safe-refactor`, `migration`, or `verify-and-stop`. Read once; switch at a phase change.
+- Choose one primary workflow: `investigate-first`, `surgical-patch`, `lean-build`, `safe-refactor`, `migration`, or `verify-and-stop`. Read only the selected skill once; load supporting sections when needed. Switch at a phase change.
 - In Codex, route `caveman-explore` to `cavecrew-investigator`, overriding shared skill references to Claude tools or `haiku`. Inherit the current model unless the user selects another. Other clients' skill behavior stays unchanged.
 - `caveman-commit` writes only the message; `caveman-compress` needs a named target and a working runner.
 - Cloud/learn/setup/optimization skills load only for an actual request and available CLI/account/report prerequisites. Do not wrap Codex in a proxy or invent credentials.
@@ -54,6 +54,6 @@ For Linux/POSIX tests on Windows, read the WSL tests section in `~/.codex/workfl
 
 Read `~/.codex/workflow.md` for Go edits, hook failures, or measurement details. Codex hooks load from `~/.codex/hooks.json`; review/trust them through `/hooks`.
 
-Follow workflow.md's hook validation, cache, and retry rules. Automatic review is an extra model call, not proven savings.
+Run task-relevant formatting, tests, and diagnostics explicitly before finishing. Hooks enforce narrow safety checks; they do not establish completion.
 
 State changed files, checks, skipped validation, and platform limits. Re-read is not a test. Stop when acceptance passes.

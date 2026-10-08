@@ -1,69 +1,26 @@
 #!/usr/bin/env python3
-"""Adapt Codex events to shared policies; run stop checks in order."""
+"""Enforce protected paths and Windows deletion safety for Codex tools."""
 
 from __future__ import annotations
 
 import fnmatch
-import hashlib
-import io
 import json
 import os
 import re
 import shlex
-import shutil
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import tool_gate
-import turn_end
-
-
-def cached_state(path: Path, *fields: str) -> dict:
-  try:
-    value = json.loads(path.read_text(encoding='utf-8'))
-  except (OSError, ValueError):
-    return {}
-  if not isinstance(value, dict) or any(not isinstance(value.get(field), str) for field in fields):
-    return {}
-  if 'repeats' in value and (type(value['repeats']) is not int or value['repeats'] < 0):
-    return {}
-  return value
 
 
 def normalize(raw: dict) -> dict:
   event = dict(raw)
-  identity = raw.get('agent_id') if raw.get('hook_event_name') == 'SubagentStop' else None
-  session = 'codex-' + str(identity or raw.get('session_id') or '')
-  turn = str(raw.get('turn_id') or '')
-  state = tool_gate.state_path(session, 'session', 'continuation.json')
-  pending = cached_state(state, 'origin', 'turn', 'reason')
-  name = raw.get('hook_event_name', '')
-  if name == 'UserPromptSubmit':
-    submitted = raw.get('prompt', '')
-    wrapped = re.fullmatch(r'<hook_prompt(?:\s[^>]*)?>\s*(.*?)\s*</hook_prompt>', submitted, re.DOTALL)
-    if wrapped:
-      submitted = wrapped.group(1)
-    if submitted != pending.get('reason'):
-      pending = {}
-      state.unlink(missing_ok=True)
-    elif pending:
-      pending['turn'] = turn
-      state.write_text(json.dumps(pending), encoding='utf-8')
-  if pending and (pending.get('turn') == turn or raw.get('stop_hook_active')):
-    turn = pending['origin']
-  event['sessionId'] = session
-  event['promptId'] = turn
+  event['sessionId'] = 'codex-' + str(raw.get('session_id') or '')
+  event['promptId'] = str(raw.get('turn_id') or '')
   event['client'] = 'codex'
-  if name == 'SubagentStop':
-    cursor = tool_gate.state_path(session, 'session', 'latest.json')
-    latest = cached_state(cursor, 'prompt', 'cwd')
-    if latest:
-      event['promptId'] = latest['prompt']
-      event['cwd'] = latest['cwd']
   tool = str(raw.get('tool_name') or '').removeprefix('mcp__')
   tool = {'fff__ffgrep': 'fff__grep', 'fff__fff-multi-grep': 'fff__multi_grep'}.get(tool, tool)
   terminal = tool in ('Bash', 'exec_command',
@@ -78,45 +35,6 @@ def normalize(raw: dict) -> dict:
       data['command'] = data['input']
     event['tool_input'] = data
   return event
-
-
-def continuation_key(event: dict) -> str:
-  parsed = snapshot_event(event)
-  root = turn_end.workspace(parsed)
-  try:
-    return changes_key(turn_end.load_changes(root, parsed))
-  except (OSError, turn_end.NotGit, turn_end.NoSnapshot):
-    # A missing baseline still needs a bounded retry budget.
-    return event['promptId']
-
-
-def remember_block(event: dict, result: dict) -> dict:
-  result = dict(result)
-  stage = result.pop('_failure_stage', 'hook')
-  if result.get('decision') == 'block':
-    state = tool_gate.state_path(event['sessionId'], 'session', 'continuation.json')
-    previous = cached_state(state, 'origin', 'turn', 'reason', 'key')
-    key = continuation_key(event)
-    locations = re.findall(r'^([^:\n]+:L\d+):', result['reason'], re.MULTILINE) if stage == 'review' else []
-    failure = [stage, sorted(set(locations)) or result['reason']]
-    unchanged = (previous.get('origin') == event['promptId']
-      and previous.get('key') == key and previous.get('failure') == failure)
-    repeats = previous.get('repeats', 0) + 1 if unchanged else 1
-    state.write_text(json.dumps({
-      'origin': event['promptId'],
-      'turn': event.get('turn_id', ''),
-      'reason': result['reason'],
-      'repeats': repeats,
-      'key': key,
-      'failure': failure,
-    }), encoding='utf-8')
-    if repeats >= 3:
-      return {
-        'continue': False,
-        'stopReason': result['reason'],
-        'systemMessage': 'Validation incomplete: the same hook failure blocked the same diff three times. ' + result['reason'],
-      }
-  return result
 
 
 def patch_paths(command: str, include_added: bool = True) -> list[str]:
@@ -152,6 +70,9 @@ def desktop_process_shells(event: dict, update: bool = False) -> dict:
     shells = json.loads(path.read_text(encoding='utf-8'))
     if not isinstance(shells, dict):
       shells = {}
+    shells = {pid: shell for pid, shell in shells.items()
+      if isinstance(pid, str) and isinstance(shell, str)
+      and shell in ('', 'bash', 'sh', 'zsh', 'pwsh', 'powershell', 'cmd')}
   except (OSError, ValueError):
     shells = {}
   if not update:
@@ -168,8 +89,10 @@ def desktop_process_shells(event: dict, update: bool = False) -> dict:
   elif tool.endswith('__start_process'):
     response = event.get('tool_response')
     content = response.get('content', []) if isinstance(response, dict) else []
-    first = content[0] if content else {}
+    first = content[0] if isinstance(content, list) and content else {}
     header = first.get('text', '') if isinstance(first, dict) else ''
+    if not isinstance(header, str):
+      return shells
     started = re.match(r'\AProcess started with PID ([0-9]+) \(shell: [^\r\n]+\)(?:\r?\n|$)', header)
     if not started:
       return shells
@@ -192,24 +115,7 @@ def tool_policy(event: dict) -> dict:
     return {}
   if name == 'PostToolUse' and re.match(r'^mcp__desktop[-_]commander__', str(event.get('tool_name') or '')):
     desktop_process_shells(event, update=True)
-  if tool == 'apply_patch':
-    command = tool_gate.command_of(event)
-    for path in patch_paths(command, include_added=name != 'PreToolUse'):
-      changed = dict(event, toolName='write', tool_input={'file_path': path})
-      result = tool_gate.handle(changed)
-      if result.get('decision') == 'deny':
-        return result
-    return {}
-  # Tool routing belongs in developer instructions; hooks retain safety/checks.
-  # Host approvals also own branch creation, which chat may already authorize.
-  if tool in ({'run_terminal_command', 'grep', 'Grep', tool_gate.GK_BRANCH}
-      | tool_gate.GITHUB_TREE | tool_gate.FFF_GREP):
-    return {}
-  if name == 'PreToolUse' and tool == 'serena__rename_symbol':
-    # Keep Go references required without the shared policy's rename routing.
-    session, prompt = tool_gate.ids_of(event)
-    return tool_gate.gate_go_pre(session, prompt, 'serena__replace_content', event)
-  return tool_gate.handle(event)
+  return {}
 
 
 def wsl_payload(args: list[str]) -> tuple[list[str], bool] | None:
@@ -552,12 +458,12 @@ def protected_shell_word(word: str) -> bool:
   if (word.startswith('$(') or word.lstrip('\\\ue005').startswith('\ue004(')) and word.endswith(')'):
     # Executed bodies are inspected separately; literal/escaped bodies stay text.
     return False
-  if turn_end.protected_path(word):
+  if tool_gate.protected_path(word):
     return True
   # Shell escapes may concatenate a secret basename, e.g. .en\v. Inspect
   # suffixes as well so a Windows-style directory does not hide that basename.
   parts = word.split('\\')
-  if any(turn_end.protected_path(''.join(parts[index:])) for index in range(len(parts))):
+  if any(tool_gate.protected_path(''.join(parts[index:])) for index in range(len(parts))):
     return True
   if re.fullmatch(r'-[a-z][a-z-]*:\$(?:true|false)', word, re.IGNORECASE):
     return False  # PowerShell boolean switch values are not path arguments.
@@ -583,7 +489,7 @@ def protected_shell_word(word: str) -> bool:
   fragments = pattern.split('*')
   if not literal_glob and (len(fragments) == 1 or not ''.join(fragments)):
     return False  # A wholly dynamic path remains an ordinary shell operation.
-  # These patterns exactly cover turn_end.protected_path, including its
+  # These patterns exactly cover tool_gate.protected_path, including its
   # unbounded .env.*.local language; they are not sampled expansion values.
   protected = ('.env', '.env.seed', '.env.local', '.env.development',
     '.env.production', '.env.test', '.env.?*.local', '*.pem')
@@ -785,151 +691,22 @@ def secret_paths(event: dict) -> bool:
   for path in paths:
     if not isinstance(path, str):
       continue
-    if turn_end.protected_path(path):
+    if tool_gate.protected_path(path):
       return True
   return False
 
 
-def snapshot_event(event: dict) -> turn_end.Event:
-  return turn_end.parse_event(event)
-
-
-def ensure_snapshot(event: dict, force: bool = False) -> dict:
-  parsed = snapshot_event(event)
-  root = turn_end.workspace(parsed)
-  if not event['promptId']:
-    return {}
-  cursor = tool_gate.state_path(event['sessionId'], 'session', 'latest.json')
-  cursor.write_text(json.dumps({'prompt': event['promptId'], 'cwd': root}), encoding='utf-8')
-  path = turn_end.snapshot_path(root, parsed)
-  if not force and os.path.isfile(path):
-    return {}
-  try:
-    turn_end.ensure_git(root)
-  except turn_end.NotGit:
-    return {}
-  errors = io.StringIO()
-  if turn_end.write_snapshot(root, parsed, errors):
-    return {'decision': 'block', 'reason': errors.getvalue().strip()}
-  return {}
-
-
-def run_stage(mode: str, event: dict) -> dict:
-  output, errors = io.StringIO(), io.StringIO()
-  status = turn_end.run([mode], io.StringIO(json.dumps(event)), output, errors)
-  if status:
-    return {'decision': 'block', 'reason': errors.getvalue().strip() or f'{mode} hook failed'}
-  return json.loads(output.getvalue()) if output.getvalue().strip() else {}
-
-
-def changes_key(changes: list[turn_end.Change]) -> str:
-  return hashlib.sha256(turn_end.encode_json({
-    change.path: [change.before, change.after, change.before_deleted, change.after_deleted]
-    for change in changes
-  })).hexdigest()
-
-
-def review(changes: list[turn_end.Change]) -> dict:
-  changes = [change for change in changes if not turn_end.protected_path(change.path)]
-  if not changes:
-    return {}
-  if shutil.which('codex') is None:
-    return {'decision': 'block', 'reason': 'codex is not on PATH; review did not run.'}
-  env = dict(os.environ, TURN_END_CHILD='1')
-  # Separate workspace prevents project hooks/config/AGENTS from re-entering.
-  # Auth remains in CODEX_HOME; user config and MCP servers are not loaded.
-  with tempfile.TemporaryDirectory(prefix='codex-hook-review-') as temp:
-    output = Path(temp) / 'review.txt'
-    try:
-      result = subprocess.run([
-        'codex', '--no-daemon', 'exec', '--ignore-user-config', '--ephemeral',
-        '--skip-git-repo-check', '--sandbox', 'read-only', '--color', 'never',
-        '-c', 'features.hooks=false', '-c', 'agents.enabled=false',
-        '-c', 'features.multi_agent=false', '-c', 'features.memories=false',
-        '-c', 'features.shell_tool=false', '-c', 'features.apps=false',
-        '-c', 'web_search="disabled"', '-c', 'project_doc_max_bytes=0',
-        '--output-last-message', str(output), '-',
-      ], input=turn_end.review_prompt(changes, complete=True), cwd=temp, env=env, capture_output=True,
-        text=True, encoding='utf-8', errors='replace', timeout=turn_end.REVIEW_TIMEOUT,
-        check=False)
-    except (OSError, subprocess.TimeoutExpired) as error:
-      return {'decision': 'block', 'reason': f'Codex review failed: {type(error).__name__}'}
-    if result.returncode:
-      errors = turn_end.trim_out(result.stderr)
-      reason = f'Codex review exited {result.returncode}.'
-      return {'decision': 'block', 'reason': reason + ('\n' + errors if errors else '')}
-    text = output.read_text(encoding='utf-8').strip() if output.exists() else ''
-  if text == turn_end.REVIEW_PASS:
-    return {}
-  return {'decision': 'block', 'reason': turn_end.trim_out(text) or 'Codex review returned no verdict.'}
-
-
-def stop(event: dict) -> dict:
-  reason = event.get('reason') or ''
-  if reason in ('shutdown', 'channel_closed'):
-    return {}
-  if event.get('hook_event_name') == 'Stop' and reason not in ('', 'end_turn'):
-    return {}
-  session, prompt = tool_gate.ids_of(event)
-  # Existing definitions are gated before editing. New Go files have no refs;
-  # both still need diagnostics after the last successful edit.
-  if (prompt and tool_gate.state_path(session, prompt, 'gopls-edited').exists()
-      and not tool_gate.state_path(session, prompt, 'gopls-diag').exists()):
-    return {'decision': 'block', 'reason': tool_gate.GO_DIAG_BLOCK, '_failure_stage': 'diagnostics'}
-  result = run_stage('format', event)
-  if result:
-    return dict(result, _failure_stage='format')
-  parsed = snapshot_event(event)
-  root = turn_end.workspace(parsed)
-  try:
-    turn_end.ensure_git(root)
-    changes = turn_end.load_changes(root, parsed)
-  except (turn_end.NotGit, turn_end.NoSnapshot):
-    return {}
-  if not changes:
-    return {}
-  changes = [change for change in changes if not turn_end.protected_path(change.path)]
-  if not changes:
-    return {}
-  digest = changes_key(changes)
-  for mode in ('test', 'review'):
-    if mode == 'review' and event.get('hook_event_name') == 'SubagentStop':
-      continue
-    cache = tool_gate.state_path(session, prompt, mode + '.passed')
-    if cache.exists() and cache.read_text(encoding='utf-8') == digest:
-      continue
-    result = review(changes) if mode == 'review' else run_stage(mode, event)
-    if result:
-      return dict(result, _failure_stage=mode)
-    cache.write_text(digest, encoding='utf-8')
-  return {}
-
-
 def dispatch(raw: dict) -> dict:
-  if os.environ.get(turn_end.CHILD_ENV) == '1':
+  name = raw.get('hook_event_name')
+  if name not in ('PreToolUse', 'PostToolUse'):
     return {}
-  if raw.get('hook_event_name') not in ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop'):
-    return {}
-  event = normalize(raw)
-  name = event.get('hook_event_name')
-  if name == 'UserPromptSubmit':
-    # Preserve the original baseline on a hook continuation.
-    return ensure_snapshot(event, force=event['promptId'] == event.get('turn_id'))
-  if name == 'PreToolUse':
-    result = ensure_snapshot(event)
-    if result:
-      return {'hookSpecificOutput': {'hookEventName': name, 'permissionDecision': 'deny', 'permissionDecisionReason': result['reason']}}
-  if name in ('PreToolUse', 'PostToolUse'):
-    result = tool_policy(event)
-    if name == 'PreToolUse' and result.get('decision') == 'deny':
-      return {'hookSpecificOutput': {
-        'hookEventName': name, 'permissionDecision': 'deny',
-        'permissionDecisionReason': result['reason'],
-      }}
-    return {} if result.get('decision') == 'allow' else result
-  if name in ('Stop', 'SubagentStop'):
-    return remember_block(event, stop(event))
-  return {}
+  result = tool_policy(normalize(raw))
+  if name == 'PreToolUse' and result.get('decision') == 'deny':
+    return {'hookSpecificOutput': {
+      'hookEventName': name, 'permissionDecision': 'deny',
+      'permissionDecisionReason': result['reason'],
+    }}
+  return result
 
 
 def main() -> int:

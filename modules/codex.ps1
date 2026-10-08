@@ -51,7 +51,7 @@ function Invoke-codex
   Assert-Directory $rulesSource
   Assert-Directory $crewSource
   Assert-File $hookJson
-  foreach ($name in @('tool_gate.py', 'turn_end.py', 'codex_hooks.py'))
+  foreach ($name in @('tool_gate.py', 'codex_hooks.py'))
   {
     Assert-File (Join-Path $sharedHooks $name)
   }
@@ -64,7 +64,7 @@ function Invoke-codex
   Install-UserFile -Source $configSource -Destination (Join-Path $codexTarget 'config.toml')
   Install-UserFile -Source $serenaContext -Destination (Join-Path $codexTarget 'serena-context.yml')
   Install-UserFile -Source $hookJson -Destination (Join-Path $codexTarget 'hooks.json')
-  foreach ($name in @('tool_gate.py', 'turn_end.py', 'codex_hooks.py'))
+  foreach ($name in @('tool_gate.py', 'codex_hooks.py'))
   {
     Install-UserFile -Source (Join-Path $sharedHooks $name) -Destination (Join-Path $sharedTarget $name)
   }

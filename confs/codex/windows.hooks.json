@@ -1,16 +1,5 @@
 {
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
-            "timeout": 120
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "^(Bash|exec_command|apply_patch|read_file|grep|Grep|mcp__(desktop[-_]commander|fff|gk|github|gopls|serena)__.*)$",
@@ -25,34 +14,12 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "^(apply_patch|mcp__(desktop[-_]commander|fff|gopls|serena)__.*)$",
+        "matcher": "^mcp__desktop[-_]commander__(start_process|interact_with_process|kill_process)$",
         "hooks": [
           {
             "type": "command",
             "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
             "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
-            "timeout": 1000
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
-            "timeout": 750
           }
         ]
       }

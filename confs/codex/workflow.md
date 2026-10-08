@@ -20,9 +20,13 @@ Run `codex execpolicy check` against the tracked Windows rule set before scoped 
 
 Hook source and tests: `agents/hooks/`; install shared scripts and the Codex adapter to `~/.agents/hooks/bin`. Review/trust `~/.codex/hooks.json` through `/hooks`.
 
-Prompt submit snapshots dirty files; first matching child tool supplies a missing baseline. One stop runner checks Go diagnostics, formatting, targeted tests, then a parent-only bounded Codex review. A format rewrite blocks; retain it and inspect it. Module changes test `./...`; other Go changes test/vet touched packages and run gopls checks. Other stacks require their own task-relevant checks.
+Codex PreToolUse checks protected paths and unsafe recursive Windows deletion. PostToolUse keeps Desktop Commander process metadata needed for interactive shell checks. Codex does not snapshot turns, run Stop validation, or invoke a review model.
 
-Successful test/review results are reused only for the same turn diff. A new edit invalidates them. Review uses existing Codex auth, an ephemeral read-only workspace, and no user MCP config. Protected paths are omitted from snapshots and review; no-change turns make no model call. Empty/failed verdicts block. Fix a hook block. Three identical blocks halt continuation with a validation-incomplete warning; completion is not established. Hooks are workflow guards, not a complete security boundary.
+Run formatting, targeted tests, and diagnostics explicitly for changed code before finishing. Keep formatter rewrites and inspect them. For Go, test/vet touched packages, test `./...` for module changes, and run diagnostics. Other stacks need their own checks. Report skipped checks.
+
+Grok and Antigravity retain provider-neutral snapshots, formatting, and tests. Grok review lives in `grok_review.py` with integration deferred; no client invokes it automatically. Hooks are limited guards: dynamic shell expressions, indirect paths, and unregistered tool forms may evade static checks. Native sandbox and approval boundaries remain necessary.
+
+Retained state: Codex session-scoped `desktop-process-shells.json` records interactive dialects until process kill; unknown or malformed entries fall back to conservative checks. Grok/Antigravity keep turn snapshots; Antigravity also keeps its session cursor, same-diff test cache, and bounded continuation record. These temporary files have no automatic expiry. Retired Codex snapshots, continuations, review caches, Go bookkeeping, and search counters are no longer written; old runtime files are left untouched.
 
 AGENTS.md owns routing, documentation lookup, delegation mappings, and completion reporting.
 
@@ -33,6 +37,6 @@ The 23 installed Caveman/workflow skills were reviewed without edits.
 - Shared Caveman skills come from external `JuliusBrussee/caveman` via `modules/caveman.ps1` and `modules/caveman.sh`. Codex mappings in AGENTS.md override conflicting shared instructions without changing other clients.
 - `caveman-help` advertises a ~46% input reduction without a local comparison. Do not repeat it as a result.
 - `caveman-compress` relies on a Python runner that calls Claude. Check prerequisites for a named target.
-- `lean-build`'s ìNative Coreî means the repository's actual architecture; it does not authorize a new framework.
+- `lean-build`'s ‚ÄúNative Core‚Äù means the repository's actual architecture; it does not authorize a new framework.
 
-For a comparison, keep task, checkout, model, permissions, and MCP catalog constant. Record parent plus child input/output, cached input separately, tool-output volume, retries, elapsed time, and acceptance. File bytes are not billed tokens. A passing-hook cache is evidence of fewer repeated checks on an unchanged diff, not measured billing savings.
+For a comparison, keep task, checkout, model, permissions, and MCP catalog constant. Record parent plus child input/output, cached input separately, tool-output volume, retries, elapsed time, and acceptance. File bytes are not billed tokens.

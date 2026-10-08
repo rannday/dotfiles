@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Always-on router for Grok on this machine. Skill bodies stay in `~/.grok/skills/<name>/SKILL.md`. Read that file before following the skill. Do not invent its procedure.
+Tool preferences for Grok on this machine. Skill bodies stay in `~/.grok/skills/<name>/SKILL.md`. Load a skill only when the task needs it, before following its procedure.
 
 Grok does not auto-activate Caveman. This file does.
 
@@ -10,6 +10,7 @@ Grok does not auto-activate Caveman. This file does.
 - Chat follows Voice. Code, config, commands, JSON, TOML, YAML, SQL, commits, and generated files stay precise.
 - Prefer small diffs. Do not refactor unrelated code unless asked.
 - Ask before an architectural change.
+- Honor authorization already given. No commit, push, discarded work, dependency installation, or OS change without authorization.
 
 ## Voice
 
@@ -28,7 +29,7 @@ Floor, always: answer first. Keep not, never, no, and only. Keep code, commands,
 
 ## Tools
 
-Call `search_tool` before an MCP tool whose schema is not already in this turn. `[features] lsp_tools` is off. `gopls` MCP is the language server.
+These routes are preferences; native tools remain available when useful. Call `search_tool` before an MCP tool whose schema is not already in this turn. `[features] lsp_tools` is off. `gopls` MCP is the language server.
 
 | Job | Tool |
 |---|---|
@@ -40,21 +41,21 @@ Call `search_tool` before an MCP tool whose schema is not already in this turn. 
 | Local worktree list | `gk__git_worktree` with `action` `list` |
 | Remote GitHub issues, PRs, checks, code, files | `github__*` on the allow list. Checks are `actions_list`, `actions_get`, and `get_job_logs`. |
 | Symbol overview, refs, full body replace, non-Go rename | Serena. Call `search_tool` first. Go refs, rename, diagnostics, and vulncheck stay on `gopls`. |
-| Shell `git` | Denied for `status`, `diff`, `log`, `show`, `branch`, `blame`, `add`, `commit`, `push`, `stash`, `checkout`, `switch`, `restore`, `pull`, `fetch`, `merge`, and `rebase`, including `git.exe` and `git -C`. Use the gk tool the deny names. Keep `remote -v`. `remote set-url` only to fix the host alias. |
+| Native tools and shell Git | Available when useful. Inspection is read-only; consequential changes need authorization. |
 
-fff: one bare identifier per query. Short query. Two greps, then read the file. On the third grep in a turn, stop and spawn `cavecrew-investigator`. If fff errors, say fff is down. Do not use the built-in `grep` tool.
+Prefer fff for discovery and text search: short queries, bounded matches, then read owning ranges. Native search is available when useful. If fff errors, name the failure and use a bounded fallback. Delegate broad localization when it improves the task; no search-count gate applies.
 
 Serena: `config.toml` starts it with `--project-from-cwd` and `--context=grok`. That context is one project. Do not call `activate_project`. If `.serena/project.yml` is missing, name that and stop. Do not run `serena project create` unless the user asks. Index once with `serena project index` only when the first symbol call is slow. Do not index every turn. Activation lists memory names. Read a memory when the task needs it. Do not write memories unless the user asks. After onboarding, start a new conversation. The onboarded turn is full.
 
-Symbol structure goes to Serena: `get_symbols_overview`, `find_symbol`, `find_referencing_symbols`, `find_declaration`. A 1-3 line edit stays `search_replace`. A full symbol body is `find_symbol` with the body, then `replace_symbol_body`. `safe_delete_symbol` deletes. It stays on ask, not allow. Do not put it on both. Confirm in chat first. The gopls hook still denies a `.go` delete with no prior refs. Text search and file names stay on fff. The remind hook is the gate after repeated `grep`, `read_file`, or `run_terminal_command` calls. `grep` also matches `fff__grep`. After a remind, switch to Serena for structure. Do not add a deny for fff or `read_file`.
+Prefer Serena for symbol structure: `get_symbols_overview`, `find_symbol`, `find_referencing_symbols`, `find_declaration`. A 1-3 line edit stays `search_replace`. A full symbol body can use `find_symbol` with the body, then `replace_symbol_body`. `safe_delete_symbol` deletes and needs authorization. Use task-relevant references before changing or deleting definitions; hooks do not track tool usage.
 
 Go task: `go_workspace` first. `file` arguments are absolute paths. Before the first Go edit in the session, `go_vulncheck` once. After the first read of a Go file, `go_file_context`. Before changing a definition, `go_symbol_references`. `go_rename_symbol` returns edits. Apply them. It does not write the files. After Go edits, `go_diagnostics` on those paths. After `go.mod` or `go.sum` changes, `go_vulncheck` again. Hint and info diagnostics can wait.
 
-gk: server name `gk`, tool prefix `gk__`. Pass `directory`. Local git only. Cloud and UI tools are hidden and denied. Do not call them. Commit and push are allowed. Confirm before worktree add, checkout, stash, pull, or `git_branch` action `create`. `tool_gate.py` denies `gk__git_branch` action `create` and names that confirm. List stays allowed. Do not put that tool on ask. Remote issues and PRs go to `github`.
+gk: server name `gk`, tool prefix `gk__`. Pass `directory`. Prefer it for local Git. Cloud and UI tools remain excluded. Native Git inspection is available. Commit, push, worktree changes, checkout, stash, pull, and branch creation need authorization; listing does not authorize mutation. Honor authorization already given. Remote issues and PRs go to `github`.
 
 github: remote repos only. Do not read the local tree through it. Call `github__get_me` when the owner is unknown. Paginate. Set `fields` when the schema has them. `search_code` and `get_file_contents` are for GitHub, not this checkout. Excluded: `merge_pull_request`, `delete_repository`, `delete_file`, `push_files`, `create_or_update_file`, `create_branch`, `create_repository`, `fork_repository`, `update_pull_request_branch`, `actions_run_trigger`. Issue and pull-request writes on the allow list do not prompt. Confirm in chat before those calls.
 
-always-approve skips MCP `ask` rules. Shell `ask` rules still prompt. Commit and push are allowed. A GitKraken mutation still on ask uses the gk confirm above. Remote file and branch writes are excluded. Shell `git push` is denied.
+always-approve skips MCP `ask` rules. Shell `ask` rules still prompt. Tool approval does not widen task authorization. Remote file and branch writes remain excluded; destructive operations remain protected.
 
 ## Remotes
 
@@ -72,7 +73,7 @@ Go indent follows the file. Two spaces when that is already the convention. Matc
 
 ## Delegation
 
-Subagent results land here verbatim. Delegate for a short table, not a line you already know. Spawn only from this session. A child cannot spawn. Wait for paths you need before editing.
+Subagent results land here verbatim. Delegate only when it improves the task; trivial known work stays inline. Spawn only from this session. A child cannot spawn. Wait for paths you need before editing.
 
 Pass `subagent_type` only when the tool enum lists that name. Never pass `general-purpose`. Omit it for bundled `review`, `design`, and `execute-plan`. Put their persona text in the prompt. If the parameter is absent, put the crew contract in the prompt.
 
@@ -82,11 +83,11 @@ Pass `subagent_type` only when the tool enum lists that name. Never pass `genera
 | Known 1-2 file edit | `cavecrew-builder` | Receipt, or `too-big.` / `needs-confirm.` / `ambiguous.` / `regressed.` |
 | Compressed bug scan | `cavecrew-reviewer` | Finding lines or `No issues.` |
 
-Parallel scout: two or three investigators, different angles. `[subagents] max_concurrent` stays unset. The default is 32. Do not send 3+ files to the builder. Paraphrase crew output for the user.
+When useful, parallel scouts can use two or three investigators with different angles. `[subagents] max_concurrent` stays unset. The default is 32. Do not send 3+ files to the builder. Paraphrase crew output for the user.
 
 Investigator and reviewer catalogs are `read_file`, `grep`, `list_dir`, and `run_terminal_cmd`, plus MCP meta-tools. `permission_mode: plan` still rejects edits outside `plan.md`. An unknown name in `tools` fails open to the full toolset, so that list stays on those four ids.
 
-Cold-start, or a search that failed: `cavecrew-investigator`. Do not follow `caveman-explore`. That skill names Claude tools and `haiku`. On this host the investigator owns localization, and its reads stay out of the main context.
+For broad cold-start localization or an unsuccessful search, consider `cavecrew-investigator`. On this host, map `caveman-explore` to that investigator rather than its Claude tools and `haiku` references. Trivial known work stays inline.
 
 Shared workspace when you are waiting on the diff. `isolation: worktree` only when you and the child would edit the same files. Report the worktree path and wait. No apply tool. `gk__git_worktree` can list. It is not the merge.
 
@@ -126,17 +127,17 @@ Before `monitor`, `scheduler_create`, or a report on a job that is still running
 
 ## Turn-end hook
 
-The grok module copies `windows.hooks.json` or `linux.hooks.json` to `~/.grok/hooks/hooks.json`, shared `turn_end.py` and `tool_gate.py` to `~/.agents/hooks/bin`, and `rules/voice.md` to `~/.grok/rules/voice.md`.
+The grok module copies `windows.hooks.json` or `linux.hooks.json` to `~/.grok/hooks/hooks.json`, shared `turn_end.py`, `tool_gate.py`, and standalone `grok_review.py` to `~/.agents/hooks/bin`, and `rules/voice.md` to `~/.grok/rules/voice.md`.
 
 - `UserPromptSubmit` snapshots the dirty git tree.
-- `Stop` and `SubagentStop` run `format`, then `test`. Parent `Stop` also runs `review`.
+- `Stop` and `SubagentStop` run `format`, then `test`.
 - Not a git repo, missing snapshot, `channel_closed`, or `shutdown`: exit 0.
 - A `Stop` whose `reason` is set and is not `end_turn` exits 0. `SubagentStop` still gates format and test.
 - Empty workspace: exit 1, `hook workspace is empty`. Name that failure.
 - `format` and `test` dispatch by changed path. A turn with no Go files does not look up `gofmt`, `go`, or `gopls`.
 - Go format: `gofmt -w` on every changed `.go` file. A rewrite blocks. Do not revert it.
 - Go test: `go test` and `go vet` on the touched package. `go.mod` or `go.sum` tests `./...`. `gopls check -severity=warning` on every changed `.go` file. A file outside a module is checked, not tested.
-- `review`: parent `Stop` only. It runs `grok -p` with `XAI_API_KEY` and the turn diff. The prompt lists every changed path, caps each file's hunks, and names omitted paths. Auth is the API key, not a login. Output is `path:L<line>: problem. fix.` or exactly `No issues.` A finding blocks. The child sets `TURN_END_CHILD=1` so it does not re-enter the hook.
+- Grok review is isolated in `grok_review.py` and is not registered as a lifecycle hook. TODO: integrate the standalone runner with a supported Grok review flow. Review only when requested or warranted; do not invent a hook protocol.
 - A block is the next round. Fix the named failure. Eight continuations, then the host forces a stop. Timeouts fail open.
 - Before finish on Go, run the Go sequence above. The hook is the backstop.
 
