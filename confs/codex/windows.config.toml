@@ -71,6 +71,7 @@ default_tools_approval_mode = "approve"
 default_tools_approval_mode = "prompt"
 command = "npx"
 args = ["-y", "@wonderwhy-er/desktop-commander@latest"]
+startup_timeout_sec = 90
 disabled_tools = [
   "start_search",
   "get_more_search_results",
