@@ -208,11 +208,11 @@ search_users = { approval_mode = "approve" }
 issue_read = { approval_mode = "approve" }
 pull_request_read = { approval_mode = "approve" }
 
-[mcp_servers.MCP_DOCKER]
-command = "docker"
-args = ["mcp", "gateway", "run", "--profile", "default"]
-startup_timeout_sec = 60
-enabled = true
+#[mcp_servers.MCP_DOCKER]
+#command = "docker"
+#args = ["mcp", "gateway", "run", "--profile", "default"]
+#startup_timeout_sec = 60
+#enabled = true
 
 #[mcp_servers.bitburner]
 #command = "bbmcp"
@@ -221,47 +221,50 @@ enabled = true
 #enabled = true
 #default_tools_approval_mode = "prompt"
 
-[projects."C:\\Users\\rannd\\Projects\\dotfiles"]
+[projects.'c:\users\rannd\projects\dotfiles']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\static-site"]
+[projects.'c:\users\rannd\projects\static-site']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\go-template"]
+[projects.'c:\users\rannd\projects\go-template']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\go-env"]
+[projects.'c:\users\rannd\projects\go-env']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\go-config"]
+[projects.'c:\users\rannd\projects\go-config']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\go-log"]
+[projects.'c:\users\rannd\projects\go-log']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\go-build-bin"]
+[projects.'c:\users\rannd\projects\go-build-bin']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\bitburner"]
+[projects.'c:\users\rannd\projects\bitburner']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\bbrs"]
+[projects.'c:\users\rannd\projects\bbrs']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\oaklog"]
+[projects.'c:\users\rannd\projects\oaklog']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\blockforge"]
+[projects.'c:\users\rannd\projects\blockforge']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\blockforge-manifest"]
+[projects.'c:\users\rannd\projects\blockforge-manifest']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\work\\ssh-config"]
+[projects.'c:\users\rannd\projects\work\ssh-config']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\work\\cog"]
+[projects.'c:\users\rannd\projects\work\cog']
 trust_level = "trusted"
 
-[projects."C:\\Users\\rannd\\Projects\\varda\\varda-modpack"]
+[projects.'c:\users\rannd\projects\varda\varda-modpack']
+trust_level = "trusted"
+
+[projects.'c:\users\rannd\projects\kea-docker']
 trust_level = "trusted"

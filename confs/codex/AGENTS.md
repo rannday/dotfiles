@@ -21,11 +21,8 @@
 | Remote issues, PRs, checks | GitHub; paginate, select fields |
 | OpenAI / Codex docs | openaiDeveloperDocs |
 | Other library docs / browser | Context7 / Playwright |
-| Additional service tools / MCP catalog discovery | Docker MCP Toolkit (`MCP_DOCKER`); task-specific discovery |
 
 Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Desktop Commander reads include skills, configuration, documentation, and external files; use absolute paths and bounded ranges (`offset` is zero-based; `length` limits lines). Avoid whole-file dumps. If a preferred tool is unavailable, name it and use a bounded native alternative. Tool choice does not widen scope, permissions, or secret access. Prefer gk for local Git; safe shell reads use normal sandbox permissions. Git mutations, merge, rebase, and restore require user authorization.
-
-Docker MCP Toolkit is configured on Linux and Windows as `MCP_DOCKER`, running `docker mcp gateway run --profile default`. Use its available service tools when relevant to the task; keep the preferred routes above for work they cover. Discover tools by `mcp__MCP_DOCKER__` and the needed tool name. When a capability is missing or the user asks for available integrations, use `mcp_find` with a short query and small `limit`. Use `mcp_add` to load an already-enabled server needed for authorized work, then inspect its tool schema. Use `mcp_exec` for a known session tool absent from the visible tool list. New server installation, configuration/profile changes, and remote writes require authorization under the existing task scope. Report missing configuration or connection failures before fallback; never read secrets to configure a server.
 
 Serena's `read_file` remains available for semantic work; generic reads belong to Desktop Commander. Prefer native editing for ordinary textual edits and native shell for builds, tests, and other commands, not default discovery/search/inspection. Use Desktop Commander process execution for host-level situations with a concrete advantage. Mutating host actions require authorization.
 
