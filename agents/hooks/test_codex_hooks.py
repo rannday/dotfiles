@@ -131,9 +131,9 @@ class CodexHooksTests(unittest.TestCase):
     ], capture_output=True, text=True, check=False)
     self.assertEqual(result.returncode, 0, result.stderr)
 
-  def test_snake_case_ids_and_mcp_names(self):
-    parsed = codex_hooks.normalize(event(tool='mcp__fff__ffgrep'))
-    self.assertEqual(tool_gate.ids_of(parsed), ('codex-parent', 'turn-1'))
+  def test_session_id_and_mcp_names(self):
+    parsed = codex_hooks.normalize(event(tool='mcp__fff__grep'))
+    self.assertEqual(parsed['sessionId'], 'codex-parent')
     self.assertEqual(parsed['toolName'], 'fff__grep')
 
   def test_bash_git_has_no_routing_block_in_codex_shape(self):
@@ -907,7 +907,7 @@ class CodexHooksTests(unittest.TestCase):
         self.assertNotEqual(self.shell_read(command,
           tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
 
-  def test_mock_installer_commands_keep_dynamic_assignments_allowed(self):
+  def test_installer_command_strings_keep_dynamic_assignments_allowed(self):
     windows = r'''$script:CONF_DIR = 'C:\Users\rannd\Projects\dotfiles\confs'
 $script:DRY_RUN = $false
 $script:auditCopies = @()
@@ -921,7 +921,7 @@ function New-CodexDirectory { param($Path) }
 Invoke-codex
 if ($script:auditCopies.Count -lt 11) { throw 'Incomplete installation mapping' }
 if (($script:auditCopies | Where-Object {$_.Source -like '*cavecrew-*.toml'}).Count -ne 3) { throw 'Missing crew role' }
-if (($script:auditCopies | Where-Object {$_.Source -like '*hooks\*.py'}).Count -ne 3) { throw 'Missing hook source' }
+if (($script:auditCopies | Where-Object {$_.Source -like '*hooks\*.py'}).Count -ne 2) { throw 'Missing hook source' }
 if (!(($script:auditCopies | Where-Object {$_.Source -like '*windows.config.toml'}).Destination -like '*\.codex\config.toml')) { throw 'Wrong platform config destination' }
 "Mocked Windows installer mapping OK: $($script:auditCopies.Count) files; no destination writes"'''
     posix = '''copy_count=0

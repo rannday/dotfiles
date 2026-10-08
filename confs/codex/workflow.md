@@ -24,15 +24,15 @@ Codex PreToolUse checks protected paths and unsafe recursive Windows deletion. P
 
 Run formatting, targeted tests, and diagnostics explicitly for changed code before finishing. Keep formatter rewrites and inspect them. For Go, test/vet touched packages, test `./...` for module changes, and run diagnostics. Other stacks need their own checks. Report skipped checks.
 
-Grok and Antigravity retain provider-neutral snapshots, formatting, and tests. Grok review lives in `grok_review.py` with integration deferred; no client invokes it automatically. Hooks are limited guards: dynamic shell expressions, indirect paths, and unregistered tool forms may evade static checks. Native sandbox and approval boundaries remain necessary.
+Grok registers snapshots, formatting, and tests. Antigravity implements these checks, but no shipped registration or installer enables them. Grok review lives in `grok_review.py`; no shipped hook registration invokes it. Hooks are limited guards: dynamic shell expressions, indirect paths, and unregistered tool forms may evade static checks. Native sandbox and approval boundaries remain necessary.
 
-Retained state: Codex session-scoped `desktop-process-shells.json` records interactive dialects until process kill; unknown or malformed entries fall back to conservative checks. Grok/Antigravity keep turn snapshots; Antigravity also keeps its session cursor, same-diff test cache, and bounded continuation record. These temporary files have no automatic expiry. Retired Codex snapshots, continuations, review caches, Go bookkeeping, and search counters are no longer written; old runtime files are left untouched.
+Retained state: Codex session-scoped `desktop-process-shells.json` records interactive dialects until process kill; unknown or malformed entries fall back to conservative checks. Grok keeps turn snapshots. If invoked, Antigravity also writes snapshots, a session cursor, a same-diff test cache, and a bounded continuation record. These temporary files have no automatic expiry. Retired Codex snapshots, continuations, review caches, Go bookkeeping, and search counters are no longer written; old runtime files are left untouched.
 
 AGENTS.md owns routing, documentation lookup, delegation mappings, and completion reporting.
 
 ## Skills audit
 
-The 23 installed Caveman/workflow skills were reviewed without edits.
+The installed Caveman/workflow skill definitions were reviewed without edits; inventory depends on the installed version.
 
 - Shared Caveman skills come from external `JuliusBrussee/caveman` via `modules/caveman.ps1` and `modules/caveman.sh`. Codex mappings in AGENTS.md override conflicting shared instructions without changing other clients.
 - `caveman-help` advertises a ~46% input reduction without a local comparison. Do not repeat it as a result.

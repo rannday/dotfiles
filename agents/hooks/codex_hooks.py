@@ -19,10 +19,7 @@ import tool_gate
 def normalize(raw: dict) -> dict:
   event = dict(raw)
   event['sessionId'] = 'codex-' + str(raw.get('session_id') or '')
-  event['promptId'] = str(raw.get('turn_id') or '')
-  event['client'] = 'codex'
   tool = str(raw.get('tool_name') or '').removeprefix('mcp__')
-  tool = {'fff__ffgrep': 'fff__grep', 'fff__fff-multi-grep': 'fff__multi_grep'}.get(tool, tool)
   terminal = tool in ('Bash', 'exec_command',
     'desktop_commander__start_process', 'desktop-commander__start_process',
     'desktop_commander__interact_with_process', 'desktop-commander__interact_with_process')
@@ -37,9 +34,8 @@ def normalize(raw: dict) -> dict:
   return event
 
 
-def patch_paths(command: str, include_added: bool = True) -> list[str]:
-  verbs = 'Update|Delete' + ('|Add' if include_added else '')
-  return re.findall(r'^\*\*\* (?:' + verbs + r') File: (.+)$', command, re.MULTILINE) + re.findall(
+def patch_paths(command: str) -> list[str]:
+  return re.findall(r'^\*\*\* (?:Update|Delete|Add) File: (.+)$', command, re.MULTILINE) + re.findall(
     r'^\*\*\* Move to: (.+)$', command, re.MULTILINE,
   )
 
