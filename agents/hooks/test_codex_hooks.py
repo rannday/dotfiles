@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import shutil
@@ -33,6 +34,53 @@ class CodexHooksTests(unittest.TestCase):
     raw = event(tool='exec_command', cwd=self.temp.name, tool_input={'cmd': command})
     raw.update(fields)
     return self.policy(raw)
+
+  def test_nonobject_hook_input_reports_concise_failure(self):
+    for value in ([], ['Stop'], None, True, 7, 'Stop'):
+      with self.subTest(value=value), patch.object(sys, 'stdin', io.StringIO(json.dumps(value))), \
+        patch.object(sys, 'stdout', io.StringIO()) as stdout, \
+        patch.object(sys, 'stderr', io.StringIO()) as stderr:
+        self.assertEqual(codex_hooks.main(), 2)
+        self.assertEqual(stdout.getvalue(), '')
+        self.assertEqual(stderr.getvalue(), 'Codex hook failed: TypeError\n')
+
+  def test_unknown_event_is_quiet_without_state_access(self):
+    with patch.object(sys, 'stdin', io.StringIO(json.dumps(event('FutureEvent')))), \
+      patch.object(sys, 'stdout', io.StringIO()) as stdout, \
+      patch.object(sys, 'stderr', io.StringIO()) as stderr, \
+      patch.object(codex_hooks, 'normalize', side_effect=AssertionError('unexpected normalization')):
+      self.assertEqual(codex_hooks.main(), 0)
+      self.assertEqual(stdout.getvalue(), '')
+      self.assertEqual(stderr.getvalue(), '')
+    self.assertEqual(list(Path(self.temp.name).iterdir()), [])
+
+  def test_malformed_continuation_state_is_ignored(self):
+    state = tool_gate.state_path('codex-parent', 'session', 'continuation.json')
+    for value in ([], ['state'], None, True, 7, 'state',
+      {'turn': 'turn-1'}, {'origin': [], 'turn': 'turn-1', 'reason': 'Retry'},
+      {'origin': 'old', 'turn': 'turn-1', 'reason': 'Retry', 'repeats': 'two'},
+      *({'origin': 'turn-1', 'turn': 'turn-1', 'reason': 'Retry',
+        'key': 'same-diff', 'failure': ['hook', 'Retry'], 'repeats': count}
+        for count in ('two', None, True, -1, 1.5))):
+      with self.subTest(value=value):
+        state.write_text(json.dumps(value), encoding='utf-8')
+        self.assertEqual(codex_hooks.normalize(event('Stop'))['promptId'], 'turn-1')
+        with patch.object(codex_hooks, 'continuation_key', return_value='same-diff'):
+          result = codex_hooks.remember_block(codex_hooks.normalize(event('Stop')),
+            {'decision': 'block', 'reason': 'Retry'})
+        self.assertEqual(result, {'decision': 'block', 'reason': 'Retry'})
+        self.assertEqual(json.loads(state.read_text(encoding='utf-8'))['repeats'], 1)
+
+  def test_malformed_latest_state_is_ignored(self):
+    state = tool_gate.state_path('codex-child', 'session', 'latest.json')
+    for value in ([], ['state'], None, True, 7, 'state',
+      {'prompt': 'child-turn'}, {'prompt': [], 'cwd': self.temp.name},
+      {'prompt': 'child-turn', 'cwd': None}):
+      with self.subTest(value=value):
+        state.write_text(json.dumps(value), encoding='utf-8')
+        parsed = codex_hooks.normalize(event('SubagentStop', agent_id='child', cwd=self.temp.name))
+        self.assertEqual(parsed['promptId'], 'turn-1')
+        self.assertEqual(parsed['cwd'], self.temp.name)
 
   def test_shell_reads_need_no_prior_mcp_call_or_project_marker(self):
     for command in ('Get-Content docs.txt', 'gc docs.txt', 'cat docs.txt',
@@ -874,13 +922,99 @@ class CodexHooksTests(unittest.TestCase):
       'echo "$(echo $(cat .en\"v\"))"',
       'echo "$(printf \')\'; cat .env)"',
       'bash -lc \'echo "$(cat .env)"\'',
-      r'Write-Output "\$(Get-Content .env)"',
       'bash -lc \'echo "^$(cat .env)"\'',
-      r'echo "\$(cat .env)"',
     )
     for command in commands:
       with self.subTest(command=command):
         self.assertEqual(self.shell_read(command).get('decision'), 'deny')
+
+  def test_backslash_before_substitution_uses_shell_dialect(self):
+    for command in (r'Write-Output "\$(Get-Content .env)"', r'echo "\$(cat .env)"'):
+      for shell in ('powershell', 'pwsh', 'sh', 'bash'):
+        with self.subTest(command=command, shell=shell):
+          result = self.shell_read(command, tool_input={'cmd': command, 'shell': shell})
+          if shell in ('powershell', 'pwsh'):
+            self.assertEqual(result.get('decision'), 'deny')
+          else:
+            self.assertNotEqual(result.get('decision'), 'deny')
+
+  def test_dynamic_assignments_are_not_path_prefixes(self):
+    commands = (
+      ('powershell', ('function Install-UserFile { param($Source,$Destination) '
+        '$script:auditCopies += [pscustomobject]@{Source=$Source;Destination=$Destination} }')),
+      ('pwsh', '@{Source=$Source;Destination=$Destination}'),
+      ('pwsh', '[pscustomobject]@{Source=$Source\nDestination=$Destination}'),
+      ('powershell', "@{'Source'=$Source;Destination=$Destination}"),
+      ('powershell', '$copy=$value'),
+      ('sh', 'copy_count=$((copy_count + 1))'),
+      ('bash', 'first=$value second=$other printf done'),
+      ('sh', 'install_user_file() { require_file "$1"; copy_count=$((copy_count + 1)); }'),
+    )
+    for shell, command in commands:
+      with self.subTest(shell=shell, command=command):
+        self.assertNotEqual(self.shell_read(command,
+          tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_mock_installer_commands_keep_dynamic_assignments_allowed(self):
+    windows = r'''$script:CONF_DIR = 'C:\Users\rannd\Projects\dotfiles\confs'
+$script:DRY_RUN = $false
+$script:auditCopies = @()
+function Write-Log { param($Message, $Level) }
+function Assert-File { param($Path) if (!(Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'Missing source file' } }
+function Assert-Directory { param($Path) if (!(Test-Path -LiteralPath $Path -PathType Container)) { throw 'Missing source directory' } }
+function Install-UserFile { param($Source,$Destination) $script:auditCopies += [pscustomobject]@{Source=$Source;Destination=$Destination} }
+. .\modules\codex.ps1
+function Install-CodexCli {}
+function New-CodexDirectory { param($Path) }
+Invoke-codex
+if ($script:auditCopies.Count -lt 11) { throw 'Incomplete installation mapping' }
+if (($script:auditCopies | Where-Object {$_.Source -like '*cavecrew-*.toml'}).Count -ne 3) { throw 'Missing crew role' }
+if (($script:auditCopies | Where-Object {$_.Source -like '*hooks\*.py'}).Count -ne 3) { throw 'Missing hook source' }
+if (!(($script:auditCopies | Where-Object {$_.Source -like '*windows.config.toml'}).Destination -like '*\.codex\config.toml')) { throw 'Wrong platform config destination' }
+"Mocked Windows installer mapping OK: $($script:auditCopies.Count) files; no destination writes"'''
+    posix = '''copy_count=0
+install_user_file() { require_file "$1"; copy_count=$((copy_count + 1)); }
+require_file() { test -f "$1" || exit 1; }
+. ./modules/codex.sh
+module_codex
+test "$copy_count" -ge 11
+printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
+    for shell, command in (('powershell', windows), ('sh', posix)):
+      with self.subTest(shell=shell):
+        self.assertNotEqual(self.shell_read(command,
+          tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_assignment_values_keep_secret_guards(self):
+    commands = (
+      ('powershell', '$copy="key.pem"'),
+      ('powershell', '$copy=.en$part'),
+      ('pwsh', '[pscustomobject]@{Source=".env"}'),
+      ('pwsh', '@{Source=$value.pem}'),
+      ('sh', 'SOURCE=.env'),
+      ('sh', 'copy_count=$((copy_count + 1)).pem'),
+      ('bash', 'SOURCE=.en$part'),
+    )
+    for shell, command in commands:
+      with self.subTest(shell=shell, command=command):
+        self.assertEqual(self.shell_read(command,
+          tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_assignment_like_filename_operands_keep_secret_guards(self):
+    for shell in ('powershell', 'pwsh', 'sh', 'bash'):
+      for command in ('cat "Source=key.pem"', 'cat "Source=$value"', 'cat Source=$value'):
+        with self.subTest(shell=shell, command=command):
+          self.assertEqual(self.shell_read(command,
+            tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+    for shell in ('powershell', 'pwsh'):
+      for command in ('@{Source=Get-Content Source=$value}',
+        '[pscustomobject]@{Source=Get-Content Source=$value}',
+        '@{Source=(Get-Content Source=$value)}',
+        "@{'Source'=Get-Content Source=$value}",
+        '[pscustomobject]@{First=$value;Source=Get-Content Source=$value}',
+        '@{First=$value\nSource=Get-Content Source=$value}'):
+        with self.subTest(shell=shell, command=command):
+          self.assertEqual(self.shell_read(command,
+            tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
 
   def test_nonsecret_and_literal_shell_substitutions_remain_allowed(self):
     commands = (

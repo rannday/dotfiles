@@ -22,16 +22,25 @@ import tool_gate
 import turn_end
 
 
+def cached_state(path: Path, *fields: str) -> dict:
+  try:
+    value = json.loads(path.read_text(encoding='utf-8'))
+  except (OSError, ValueError):
+    return {}
+  if not isinstance(value, dict) or any(not isinstance(value.get(field), str) for field in fields):
+    return {}
+  if 'repeats' in value and (type(value['repeats']) is not int or value['repeats'] < 0):
+    return {}
+  return value
+
+
 def normalize(raw: dict) -> dict:
   event = dict(raw)
   identity = raw.get('agent_id') if raw.get('hook_event_name') == 'SubagentStop' else None
   session = 'codex-' + str(identity or raw.get('session_id') or '')
   turn = str(raw.get('turn_id') or '')
   state = tool_gate.state_path(session, 'session', 'continuation.json')
-  try:
-    pending = json.loads(state.read_text(encoding='utf-8'))
-  except (OSError, ValueError):
-    pending = {}
+  pending = cached_state(state, 'origin', 'turn', 'reason')
   name = raw.get('hook_event_name', '')
   if name == 'UserPromptSubmit':
     submitted = raw.get('prompt', '')
@@ -51,10 +60,7 @@ def normalize(raw: dict) -> dict:
   event['client'] = 'codex'
   if name == 'SubagentStop':
     cursor = tool_gate.state_path(session, 'session', 'latest.json')
-    try:
-      latest = json.loads(cursor.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-      latest = {}
+    latest = cached_state(cursor, 'prompt', 'cwd')
     if latest:
       event['promptId'] = latest['prompt']
       event['cwd'] = latest['cwd']
@@ -89,10 +95,7 @@ def remember_block(event: dict, result: dict) -> dict:
   stage = result.pop('_failure_stage', 'hook')
   if result.get('decision') == 'block':
     state = tool_gate.state_path(event['sessionId'], 'session', 'continuation.json')
-    try:
-      previous = json.loads(state.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-      previous = {}
+    previous = cached_state(state, 'origin', 'turn', 'reason', 'key')
     key = continuation_key(event)
     locations = re.findall(r'^([^:\n]+:L\d+):', result['reason'], re.MULTILINE) if stage == 'review' else []
     failure = [stage, sorted(set(locations)) or result['reason']]
@@ -347,7 +350,7 @@ def ansi_c_text(text: str) -> str:
 def secret_shell_words(command: str, substitutions: list[str], starts: list[tuple[int, str]], shell: str) -> list[tuple[str, str]]:
   """Join adjacent quoted fragments without discarding Windows path separators."""
   words, word, literal_word, quote = [], [], [], ''
-  script_depth = 0
+  script_blocks = []
   # Keep raw payloads for nested shells; the parallel spelling preserves
   # literal metacharacters for the independent protected-glob check.
   literal_marks = str.maketrans({'*': '\ue000', '?': '\ue001', '[': '\ue002', '{': '\ue003'})
@@ -430,6 +433,24 @@ def secret_shell_words(command: str, substitutions: list[str], starts: list[tupl
       append(command[index:end])
       index = end
       continue
+    if char == '=' and not quote:
+      prefix = ''.join(word)
+      assignment = False
+      if shell in ('pwsh', 'powershell'):
+        assignment = bool(re.fullmatch(r'\$[a-zA-Z_][\w:]*', prefix)
+          or script_blocks and script_blocks[-1]
+          and starts[-1][1] in ('{', ';', '\n', '\r')
+          and len(words) == starts[-1][0]
+          and re.fullmatch(r'[a-zA-Z_][\w]*', prefix))
+      elif shell in ('bash', 'sh', 'zsh'):
+        preceding = words[starts[-1][0]:]
+        assignment = bool(re.fullmatch(r'[a-zA-Z_][\w]*', prefix)
+          and all('\ue00a' in pattern for _, pattern in preceding))
+      if assignment:
+        word.append('=')
+        literal_word.append('\ue00a')
+        index += 1
+        continue
     if shell in ('pwsh', 'powershell') and quote != "'" and command[index:index + 2] == '${':
       # Parameter braces are part of the word, not script-block boundaries.
       end = command.find('}', index + 2)
@@ -438,12 +459,17 @@ def secret_shell_words(command: str, substitutions: list[str], starts: list[tupl
       index = end
       continue
     if shell in ('pwsh', 'powershell') and not quote and (
-        char == '{' and (not word or word[-1].endswith('=') or word == ['@'])
-        or char == '}' and script_depth):
+        char == '{' and (not word or word[-1].endswith('=')
+          or re.fullmatch(r'(?:\[[a-zA-Z_][\w.,\[\]]*\])?@', ''.join(word)))
+        or char == '}' and script_blocks):
+      hashtable = char == '{' and bool(word and word[-1].endswith('@'))
       if word:
         words.append((''.join(word), ''.join(literal_word)))
         word, literal_word = [], []
-      script_depth += 1 if char == '{' else -1
+      if char == '{':
+        script_blocks.append(hashtable)
+      else:
+        script_blocks.pop()
       starts.append((len(words), char))
       index += 1
       continue
@@ -516,6 +542,8 @@ def shell_patterns_overlap(left: str, right: str) -> bool:
 
 
 def protected_shell_word(word: str) -> bool:
+  # An assignment key is syntax; only its value can select a protected path.
+  word = word.partition('\ue00a')[2] if '\ue00a' in word else word
   word = re.sub(r'\ue009[a-zA-Z_][\w.,\[\]]*\]', '', word)
   alternatives = re.search(r'(?<!\$)\{([^{}]*,[^{}]*)\}', word)
   if alternatives:
@@ -650,7 +678,9 @@ def shell_secret_paths(command: str, shell: str = '') -> bool:
           first += 1
           invocation = segment[first]
         # A typed variable declaration is syntax, not a wildcard path.
-        parsed[begin] = (segment[0], parsed[begin][1].partition('=')[2] if first == 0 else '')
+        spelling = parsed[begin][1]
+        delimiter = '\ue00a' if '\ue00a' in spelling else '='
+        parsed[begin] = (segment[0], spelling.partition(delimiter)[2] if first == 0 else '')
       cmdlet = invocation.rsplit('\\', 1)[-1].lower()
       invoked = cmdlet in path_commands
       parameters = value_parameters | {'-path', '-literalpath'}
@@ -878,6 +908,8 @@ def stop(event: dict) -> dict:
 def dispatch(raw: dict) -> dict:
   if os.environ.get(turn_end.CHILD_ENV) == '1':
     return {}
+  if raw.get('hook_event_name') not in ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop'):
+    return {}
   event = normalize(raw)
   name = event.get('hook_event_name')
   if name == 'UserPromptSubmit':
@@ -903,6 +935,8 @@ def dispatch(raw: dict) -> dict:
 def main() -> int:
   try:
     raw = json.load(sys.stdin)
+    if not isinstance(raw, dict):
+      raise TypeError('hook input must be an object')
     result = dispatch(raw)
   except (OSError, ValueError, TypeError, KeyError) as error:
     print(f'Codex hook failed: {type(error).__name__}', file=sys.stderr)

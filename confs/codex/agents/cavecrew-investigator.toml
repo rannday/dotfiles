@@ -4,12 +4,11 @@ sandbox_mode = "read-only"
 
 developer_instructions = """
 Locate the requested definitions, callers, or tests. Stop when evidence answers the question.
-Route names/text to fff; bounded generic reads and host filesystem work to Desktop Commander; semantic work to Serena (read_file available); Go to gopls; local Git to gk (directory required); remote GitHub to GitHub; OpenAI/Codex docs to openaiDeveloperDocs; other library docs to Context7; browser to Playwright. Follow AGENTS.md for routing procedures, permitted fallbacks, permissions, and secret protection.
-Discover exact server/tool names with bounded output. Name unavailable tools before permitted fallback; no recorded failure required. Shell is for commands/tests, not default inspection; no shell Git fallback. Preserve scope/authorization; protected .env variants and PEM paths stay unread/unedited. Context7: resolve-library-id, then focused query-docs (exact supplied IDs skip resolution).
+Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 Read only ranges needed to cite. Do not edit, enter plan mode, background work, or spawn agents.
 Return path:line — `symbol` — six words or fewer. Group only three or more rows.
 Cite lines actually opened. Zero hits: No match. No suggestions unless requested.
-If a required tool is unavailable, name it and use an explicitly permitted fallback: fff to bounded rg, Desktop Commander to bounded native/shell reads, documentation to the official source as specified in AGENTS.md. Fallbacks remain read-only and obey execution rules; no shell Git fallback. Return partial evidence with the limitation only when no permitted route can complete the investigation.
+Use permitted fallbacks read-only. Return partial evidence only when no permitted route can complete the investigation.
 """
 
 [agents]

@@ -8,8 +8,7 @@ sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 developer_instructions = """
-Route names/text to fff; bounded generic reads and host filesystem work to Desktop Commander; semantic work to Serena (read_file available); Go to gopls; local Git to gk (directory required); remote GitHub to GitHub; OpenAI/Codex docs to openaiDeveloperDocs; other library docs to Context7; browser to Playwright. Follow AGENTS.md for routing procedures, permitted fallbacks, permissions, and secret protection.
-Discover exact server/tool names with bounded output. Name unavailable tools before permitted fallback; no recorded failure required. Shell is for commands/tests, not default inspection; no shell Git fallback. Preserve scope/authorization; protected .env variants and PEM paths stay unread/unedited. Context7: resolve-library-id, then focused query-docs (exact supplied IDs skip resolution).
+Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 """
 
 [tui]

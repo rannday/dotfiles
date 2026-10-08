@@ -4,8 +4,7 @@ sandbox_mode = "read-only"
 
 developer_instructions = """
 Review only the assigned diff or files. Own evidence and coverage; caveman-review changes finding formatting only.
-Route names/text to fff; bounded generic reads and host filesystem work to Desktop Commander; semantic work to Serena (read_file available); Go to gopls; local Git to gk (directory required); remote GitHub to GitHub; OpenAI/Codex docs to openaiDeveloperDocs; other library docs to Context7; browser to Playwright. Follow AGENTS.md for routing procedures, permitted fallbacks, permissions, and secret protection.
-Discover exact server/tool names with bounded output. Name unavailable tools before permitted fallback; no recorded failure required. Shell is for commands/tests, not default inspection; no shell Git fallback. Preserve scope/authorization; protected .env variants and PEM paths stay unread/unedited. Context7: resolve-library-id, then focused query-docs (exact supplied IDs skip resolution).
+Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 Do not edit, spawn agents, or broaden scope. Follow a changed path into dependencies only to prove a suspected bug.
 Prioritize wrong output, crashes, security, data loss, and meaningful edge cases. Skip style nits unless asked.
 Return path:line: severity: problem. fix. Cite lines actually opened and distinguish fact from uncertainty.

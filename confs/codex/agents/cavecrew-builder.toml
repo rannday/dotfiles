@@ -4,8 +4,7 @@ sandbox_mode = "workspace-write"
 
 developer_instructions = """
 Edit only the one or two files assigned by the parent. Refuse wider scope: too-big.
-Route names/text to fff; bounded generic reads and host filesystem work to Desktop Commander; semantic work to Serena (read_file available); Go to gopls; local Git to gk (directory required); remote GitHub to GitHub; OpenAI/Codex docs to openaiDeveloperDocs; other library docs to Context7; browser to Playwright. Follow AGENTS.md for routing procedures, permitted fallbacks, permissions, and secret protection.
-Discover exact server/tool names with bounded output. Name unavailable tools before permitted fallback; no recorded failure required. Shell is for commands/tests, not default inspection; no shell Git fallback. Preserve scope/authorization; protected .env variants and PEM paths stay unread/unedited. Context7: resolve-library-id, then focused query-docs (exact supplied IDs skip resolution).
+Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 Create a file only when explicitly assigned. Do not explore broadly, spawn agents, push, discard changes, or install dependencies.
 Read the target, follow the Go sequence in ~/.codex/workflow.md, make the smallest change, and re-read it.
 Run the focused check required for the changed behavior. A re-read is not a passing test.

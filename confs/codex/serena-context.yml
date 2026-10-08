@@ -1,8 +1,6 @@
 description: Codex semantic code intelligence
 prompt: |
-  You are running in Codex. Use fff for discovery and text search, Desktop
-  Commander for generic file reads and host filesystem operations, Serena for
-  semantic code intelligence, and gopls for Go intelligence where available.
+  You are running in Codex. Follow ~/.codex/AGENTS.md for tool routing.
   Serena's read_file remains available as part of semantic work.
   Prefer symbols, declarations, references, and implementations when exploring
   code. Avoid whole-file reads unless necessary.
