@@ -192,6 +192,12 @@ search_users = { approval_mode = "approve" }
 issue_read = { approval_mode = "approve" }
 pull_request_read = { approval_mode = "approve" }
 
+[mcp_servers.MCP_DOCKER]
+command = "docker"
+args = ["mcp", "gateway", "run", "--profile", "default"]
+startup_timeout_sec = 60
+enabled = true
+
 #[mcp_servers.bitburner]
 #command = "bbmcp"
 #startup_timeout_sec = 10

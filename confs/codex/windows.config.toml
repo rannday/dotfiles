@@ -121,7 +121,6 @@ args = ["start-mcp-server", "--project-from-cwd", "--context=C:/Users/rannd/.cod
 startup_timeout_sec = 90
 disabled_tools = ["activate_project"]
 
-
 [mcp_servers.serena.tools]
 initial_instructions = { approval_mode = "approve" }
 check_onboarding_performed = { approval_mode = "approve" }
@@ -140,7 +139,7 @@ get_diagnostics_for_file = { approval_mode = "approve" }
 #default_tools_approval_mode = "prompt"
 #command = "npx"
 #args = ["-y", "@playwright/mcp@latest"]
-#
+
 [mcp_servers.gk]
 default_tools_approval_mode = "prompt"
 command = "gk"
@@ -208,6 +207,12 @@ search_repositories = { approval_mode = "approve" }
 search_users = { approval_mode = "approve" }
 issue_read = { approval_mode = "approve" }
 pull_request_read = { approval_mode = "approve" }
+
+[mcp_servers.MCP_DOCKER]
+command = "docker"
+args = ["mcp", "gateway", "run", "--profile", "default"]
+startup_timeout_sec = 60
+enabled = true
 
 #[mcp_servers.bitburner]
 #command = "bbmcp"
