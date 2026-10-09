@@ -43,7 +43,6 @@ include_only = [
 
 [windows]
 sandbox = "elevated"
-#sandbox = "unelevated"
 
 [agents]
 enabled = true
