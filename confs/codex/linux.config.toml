@@ -211,22 +211,7 @@ trust_level = "trusted"
 [projects.'/home/rann/Projects/static-site']
 trust_level = "trusted"
 
-[projects.'/home/rann/Projects/go-template']
-trust_level = "trusted"
-
-[projects.'/home/rann/Projects/go-env']
-trust_level = "trusted"
-
-[projects.'/home/rann/Projects/go-config']
-trust_level = "trusted"
-
-[projects.'/home/rann/Projects/go-log']
-trust_level = "trusted"
-
-[projects.'/home/rann/Projects/go-build-bin']
-trust_level = "trusted"
-
-[projects.'/home/rann/Projects/bitburner']
+[projects.'/home/rann/Projects/go-kit']
 trust_level = "trusted"
 
 [projects.'/home/rann/Projects/bbrs']
@@ -251,4 +236,7 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [projects.'/home/rann/Projects/kea-docker']
+trust_level = "trusted"
+
+[projects.'/home/rann/Projects/kea-stack']
 trust_level = "trusted"

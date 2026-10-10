@@ -226,22 +226,7 @@ trust_level = "trusted"
 [projects.'c:\users\rannd\projects\static-site']
 trust_level = "trusted"
 
-[projects.'c:\users\rannd\projects\go-template']
-trust_level = "trusted"
-
-[projects.'c:\users\rannd\projects\go-env']
-trust_level = "trusted"
-
-[projects.'c:\users\rannd\projects\go-config']
-trust_level = "trusted"
-
-[projects.'c:\users\rannd\projects\go-log']
-trust_level = "trusted"
-
-[projects.'c:\users\rannd\projects\go-build-bin']
-trust_level = "trusted"
-
-[projects.'c:\users\rannd\projects\bitburner']
+[projects.'c:\users\rannd\projects\go-kit']
 trust_level = "trusted"
 
 [projects.'c:\users\rannd\projects\bbrs']
@@ -266,4 +251,7 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [projects.'c:\users\rannd\projects\kea-docker']
+trust_level = "trusted"
+
+[projects.'c:\users\rannd\projects\kea-stack']
 trust_level = "trusted"
