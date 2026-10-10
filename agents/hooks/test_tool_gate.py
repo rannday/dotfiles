@@ -79,9 +79,11 @@ class ToolGateTests(unittest.TestCase):
       return {name: (server.get('default_tools_approval_mode'), server.get('tools', {}), server.get('disabled_tools', [])) for name, server in config['mcp_servers'].items()}
     self.assertEqual(permissions(configs[0]), permissions(configs[1]))
     for config in configs:
-      for name in ('desktop-commander', 'serena', 'gk', 'github', 'gopls'):
+      for name in ('filesystem', 'serena', 'git', 'fetch', 'github', 'gopls'):
         self.assertEqual(config['mcp_servers'][name]['default_tools_approval_mode'], 'prompt')
-      self.assertNotIn('fetch', config['mcp_servers']['gk'].get('tools', {}))
+      self.assertEqual(config['mcp_servers']['git']['tools']['git_status']['approval_mode'], 'approve')
+      self.assertEqual(config['mcp_servers']['filesystem']['tools']['read_text_file']['approval_mode'], 'approve')
+      self.assertEqual(config['mcp_servers']['fetch']['args'], ['mcp-server-fetch'])
       self.assertIn('merge_pull_request', config['mcp_servers']['github']['http_headers']['X-MCP-Exclude-Tools'])
 
   def test_state_keys_stay_within_fixture(self):

@@ -13,24 +13,24 @@
 | Work | Preferred tool |
 |---|---|
 | Names and text / discovery / search | fff; short query, bounded matches |
-| Generic known-file reads | Desktop Commander; bounded ranges, absolute paths |
-| Host filesystem operations | Desktop Commander; mutations need authorization |
+| Generic known-file reads and filesystem operations | Filesystem MCP; bounded reads, absolute paths |
 | Semantic code structure, symbols, refs, refactors | Serena |
 | Go workspace, context, refs, rename, diagnostics, vulns | gopls; absolute paths |
-| Local Git | gk; pass `directory` |
+| Local Git | Git MCP; pass `repo_path` |
+| Web page extraction | Fetch MCP; use Playwright for browser interaction |
 | Remote issues, PRs, checks | GitHub; paginate, select fields |
 | OpenAI / Codex docs | openaiDeveloperDocs |
 | Other library docs / browser | Context7 / Playwright |
 
-Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Desktop Commander reads include skills, configuration, documentation, and external files; use absolute paths and bounded ranges (`offset` is zero-based; `length` limits lines). Avoid whole-file dumps. If a preferred tool is unavailable, name it and use a bounded native alternative. Tool choice does not widen scope, permissions, or secret access. Prefer gk for local Git; safe shell reads use normal sandbox permissions. Git mutations, merge, rebase, and restore require user authorization.
+Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Filesystem MCP is limited to configured user-home roots; use absolute paths and bounded reads. Avoid whole-file dumps. Protected `.env` variants and PEM paths stay unread and unedited. If a preferred tool is unavailable, name it and use a bounded native alternative. Tool choice does not widen scope, permissions, or secret access. Use Git MCP with an explicit `repo_path` for local repository status, diffs, logs, and branches. Git mutations, merge, rebase, and restore require user authorization. Fetch MCP extracts web pages as Markdown; it can reach local/internal IP addresses, so use it only for intended public URLs.
 
-Serena's `read_file` remains available for semantic work; generic reads belong to Desktop Commander. Prefer native editing for ordinary textual edits and native shell for builds, tests, and other commands, not default discovery/search/inspection. Use Desktop Commander process execution for host-level situations with a concrete advantage. Mutating host actions require authorization.
+Serena's `read_file` remains available for semantic work; generic reads belong to Filesystem MCP. Prefer native editing for ordinary textual edits and native shell for builds, tests, and other commands, not default discovery/search/inspection. Mutating host actions require authorization.
 
 Serena starts from cwd with the custom `~/.codex/serena-context.yml` semantic context. Do not activate another project. Report missing `.serena/project.yml`; creation/onboarding and memory writes need authorization. `.go` renames stay on gopls.
 
 Use openaiDeveloperDocs for current OpenAI/Codex documentation: search, then fetch the relevant page. If unavailable, name it and use official OpenAI documentation. For other library, framework, SDK, API, CLI, and cloud-service docs, use Context7: `resolve-library-id` first unless an exact `/org/project` ID is supplied, then `query-docs` with a focused question per concept. Select the relevant official source/version and answer from fetched docs. If Context7 is unavailable, name it and use official library documentation. General programming, business logic, and code review alone do not require library docs. Report connection failures before fallback. Use Playwright for browser work.
 
-GitHub reads must not duplicate this checkout. Confirm unauthorized remote writes; exclusions remain in config. gk branch creation, checkout, stash, pull, and worktree changes need authorization; listing does not authorize mutation.
+GitHub reads must not duplicate this checkout. Confirm unauthorized remote writes; exclusions remain in config. Git MCP branch creation, checkout, stash, pull, and worktree changes need authorization; listing does not authorize mutation.
 
 Before push, `git remote -v`. Use SSH aliases: `github.com-rannday`, `github.com-sggsa`, `github.com-varda`. Fix a wrong host with `git remote set-url`; never replace an alias with bare `github.com`.
 

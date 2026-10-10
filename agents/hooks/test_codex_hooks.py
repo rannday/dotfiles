@@ -250,7 +250,7 @@ class CodexHooksTests(unittest.TestCase):
             tool_input={key: 'cat .env', 'shell': shell}))['decision'], 'deny')
 
   def test_branch_creation_uses_host_approvals_not_permanent_deny(self):
-    self.assertEqual(self.policy(event(tool='mcp__gk__git_branch', tool_input={'action': 'create'})), {})
+    self.assertEqual(self.policy(event(tool='mcp__git__git_create_branch', tool_input={'repo_path': 'repo', 'branch_name': 'new'})), {})
 
   def test_secret_paths_read_shell_and_patch(self):
     for tool, data in (
@@ -258,12 +258,12 @@ class CodexHooksTests(unittest.TestCase):
       ('Bash', {'command': 'Get-Content "C:\\repo\\secret.pem"'}),
       ('apply_patch', {'command': '*** Add File: .env.production'}),
       ('mcp__serena__replace_content', {'relative_path': '.env.dev.local'}),
-      ('mcp__desktop_commander__read_file', {'path': 'C:/repo/.env.local'}),
-      ('mcp__desktop_commander__get_file_info', {'path': 'keys/server.pem'}),
-      ('mcp__desktop_commander__read_multiple_files', {'paths': ['notes.txt', 'keys/server.pem']}),
-      ('mcp__desktop_commander__write_file', {'path': '.env.seed', 'content': 'secret'}),
-      ('mcp__desktop_commander__move_file', {'source': 'secret.pem', 'destination': 'notes.txt'}),
-      ('mcp__desktop_commander__move_file', {'source': 'notes.txt', 'destination': '.env.test'}),
+      ('mcp__filesystem__read_text_file', {'path': 'C:/repo/.env.local'}),
+      ('mcp__filesystem__get_file_info', {'path': 'keys/server.pem'}),
+      ('mcp__filesystem__read_multiple_files', {'paths': ['notes.txt', 'keys/server.pem']}),
+      ('mcp__filesystem__write_file', {'path': '.env.seed', 'content': 'secret'}),
+      ('mcp__filesystem__move_file', {'source': 'secret.pem', 'destination': 'notes.txt'}),
+      ('mcp__filesystem__move_file', {'source': 'notes.txt', 'destination': '.env.test'}),
     ):
       with self.subTest(tool=tool):
         self.assertEqual(self.policy(event(tool=tool, tool_input=data))['decision'], 'deny')
@@ -272,7 +272,7 @@ class CodexHooksTests(unittest.TestCase):
       ('read_file', {'path': 'C:/repo/docs.txt', 'offset': 0, 'length': 10}),
       ('read_multiple_files', {'paths': ['docs.txt', '.env.example']}),
     ):
-      self.assertNotEqual(self.policy(event(tool='mcp__desktop_commander__' + tool,
+      self.assertNotEqual(self.policy(event(tool='mcp__filesystem__' + tool,
         tool_input=data)).get('decision'), 'deny')
 
   def test_wrapped_shell_secret_paths_stay_denied(self):

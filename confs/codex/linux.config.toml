@@ -46,34 +46,6 @@ command = "fff-mcp"
 enabled = true
 default_tools_approval_mode = "approve"
 
-[mcp_servers.desktop-commander]
-default_tools_approval_mode = "prompt"
-command = "npx"
-args = ["-y", "@wonderwhy-er/desktop-commander@latest"]
-startup_timeout_sec = 90
-disabled_tools = [
-  "start_search",
-  "get_more_search_results",
-  "list_searches",
-  "stop_search",
-  "edit_block",
-  "get_prompts",
-  "give_feedback_to_desktop_commander",
-  "write_pdf",
-]
-
-# Observational tools only; mutations and ambiguous tools retain prompt approval.
-[mcp_servers.desktop-commander.tools]
-read_file = { approval_mode = "approve" }
-read_multiple_files = { approval_mode = "approve" }
-list_directory = { approval_mode = "approve" }
-get_file_info = { approval_mode = "approve" }
-list_processes = { approval_mode = "approve" }
-list_sessions = { approval_mode = "approve" }
-read_process_output = { approval_mode = "approve" }
-get_config = { approval_mode = "approve" }
-get_usage_stats = { approval_mode = "approve" }
-
 [mcp_servers.openaiDeveloperDocs]
 url = "https://developers.openai.com/mcp"
 
@@ -124,35 +96,40 @@ get_diagnostics_for_file = { approval_mode = "approve" }
 #command = "npx"
 #args = ["-y", "@playwright/mcp@latest"]
 
-[mcp_servers.gk]
+[mcp_servers.filesystem]
 default_tools_approval_mode = "prompt"
-command = "gk"
-args = ["mcp"]
-disabled_tools = [
-  "app_update_user_preferences",
-  "git_commit_composer",
-  "git_resolve",
-  "gitkraken_workspace_list",
-  "gitlens_launchpad",
-  "gitlens_start_review",
-  "gitlens_start_work",
-  "issues_add_comment",
-  "issues_assigned_to_me",
-  "issues_create",
-  "issues_get_detail",
-  "pull_request_assigned_to_me",
-  "pull_request_create",
-  "pull_request_create_review",
-  "pull_request_get_comments",
-  "pull_request_get_detail",
-  "repository_get_file_content",
-]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/home/rann"]
 
-[mcp_servers.gk.tools]
+[mcp_servers.filesystem.tools]
+read_text_file = { approval_mode = "approve" }
+read_media_file = { approval_mode = "approve" }
+read_multiple_files = { approval_mode = "approve" }
+list_directory = { approval_mode = "approve" }
+list_directory_with_sizes = { approval_mode = "approve" }
+directory_tree = { approval_mode = "approve" }
+search_files = { approval_mode = "approve" }
+get_file_info = { approval_mode = "approve" }
+list_allowed_directories = { approval_mode = "approve" }
+
+[mcp_servers.git]
+default_tools_approval_mode = "prompt"
+command = "uvx"
+args = ["mcp-server-git"]
+
+[mcp_servers.git.tools]
 git_status = { approval_mode = "approve" }
-git_log_or_diff = { approval_mode = "approve" }
-git_blame = { approval_mode = "approve" }
-git_graph = { approval_mode = "approve" }
+git_diff_unstaged = { approval_mode = "approve" }
+git_diff_staged = { approval_mode = "approve" }
+git_diff = { approval_mode = "approve" }
+git_log = { approval_mode = "approve" }
+git_show = { approval_mode = "approve" }
+git_branch = { approval_mode = "approve" }
+
+[mcp_servers.fetch]
+default_tools_approval_mode = "prompt"
+command = "uvx"
+args = ["mcp-server-fetch"]
 
 [mcp_servers.github]
 default_tools_approval_mode = "prompt"
