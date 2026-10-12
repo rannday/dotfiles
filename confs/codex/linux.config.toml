@@ -8,7 +8,7 @@ sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 developer_instructions = """
-Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
+Follow ~/.codex/AGENTS.md for voice, tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 """
 
 [tui]
@@ -119,6 +119,11 @@ git_diff = { approval_mode = "approve" }
 git_log = { approval_mode = "approve" }
 git_show = { approval_mode = "approve" }
 git_branch = { approval_mode = "approve" }
+git_add = { approval_mode = "prompt" }
+git_commit = { approval_mode = "prompt" }
+git_reset = { approval_mode = "prompt" }
+git_create_branch = { approval_mode = "prompt" }
+git_checkout = { approval_mode = "prompt" }
 
 [mcp_servers.fetch]
 default_tools_approval_mode = "prompt"

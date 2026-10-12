@@ -6,7 +6,7 @@
 - Keep edits within the task. Preserve layout and unrelated work. Inspect the worktree first. Generated files need an explicit request.
 - Honor authorization already given. Diagnose unknown failures, then continue an authorized fix. Ask only for missing scope or new permission.
 - No commit, push, history rewrite, discarded work, dependency install, or OS change without authorization. Approval review does not widen task scope.
-- Protected `.env` variants and PEM paths stay unread and unedited. Request a redacted example when needed.
+- Real `.env` files, secret-bearing `.env` variants, and PEM paths stay unread and unedited. Public `.env.example` templates may be read and edited; never copy real secrets into them. Request a redacted example when needed.
 
 ## Tools
 
@@ -22,7 +22,7 @@
 | OpenAI / Codex docs | openaiDeveloperDocs |
 | Other library docs / browser | Context7 / Playwright |
 
-Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Filesystem MCP is limited to configured user-home roots; use absolute paths and bounded reads. Avoid whole-file dumps. Protected `.env` variants and PEM paths stay unread and unedited. If a preferred tool is unavailable, name it and use a bounded native alternative. Tool choice does not widen scope, permissions, or secret access. Use Git MCP with an explicit `repo_path` for local repository status, diffs, logs, and branches. Git mutations, merge, rebase, and restore require user authorization. Fetch MCP extracts web pages as Markdown; it can reach local/internal IP addresses, so use it only for intended public URLs.
+Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Filesystem MCP is limited to configured user-home roots; use absolute paths and bounded reads. Avoid whole-file dumps. Real `.env` files, secret-bearing `.env` variants, and PEM paths stay unread and unedited. Public `.env.example` templates may be read and edited; never copy real secrets into them. If a preferred tool is unavailable, name it and use a bounded native alternative. Tool choice does not widen scope, permissions, or secret access. Use Git MCP with an explicit `repo_path` for local repository status, diffs, logs, and branches. Git mutations, merge, rebase, and restore require user authorization. Fetch MCP extracts web pages as Markdown; it can reach local/internal IP addresses, so use it only for intended public URLs.
 
 Serena's `read_file` remains available for semantic work; generic reads belong to Filesystem MCP. Prefer native editing for ordinary textual edits and native shell for builds, tests, and other commands, not default discovery/search/inspection. Mutating host actions require authorization.
 
