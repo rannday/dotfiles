@@ -308,7 +308,7 @@ function update
   }
   else
   {
-    npx -y github:JuliusBrussee/caveman -- --only grok --force
+    npx --allow-git=all -y skills add JuliusBrussee/caveman --skill '*' -a codex --yes -g
 
     if ($LASTEXITCODE -ne 0)
     {
