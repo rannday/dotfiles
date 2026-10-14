@@ -53,6 +53,16 @@
 
   "code_lens": "on",
   "lsp": {
+    "clangd": {
+      "binary": {
+        "path": "C:\\Program Files\\LLVM\\bin\\clangd.exe",
+        "arguments": [
+          "--background-index",
+          "--clang-tidy",
+          "--completion-style=detailed"
+        ]
+      }
+    },
     "gopls": {
       "initialization_options": {
         "hints": {
@@ -93,11 +103,13 @@
     },
     "C": {
       "hard_tabs": false,
-      "tab_size": 2
+      "tab_size": 2,
+      "format_on_save": "on"
     },
     "C++": {
       "hard_tabs": false,
-      "tab_size": 2
+      "tab_size": 2,
+      "format_on_save": "on"
     },
     "HTML": {
       "hard_tabs": false,

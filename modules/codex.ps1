@@ -34,6 +34,7 @@ function Invoke-codex
   $agentsSource = Join-Path $codexSource 'AGENTS.md'
   $workflowSource = Join-Path $codexSource 'workflow.md'
   $configSource = Join-Path $codexSource 'windows.config.toml'
+  $keaConfigSource = Join-Path $codexSource '.kea-mcp.toml'
   $serenaContext = Join-Path $codexSource 'serena-context.yml'
   $rulesSource = Join-Path $codexSource 'rules'
   $crewSource = Join-Path $codexSource 'agents'
@@ -47,6 +48,7 @@ function Invoke-codex
   Assert-File $agentsSource
   Assert-File $workflowSource
   Assert-File $configSource
+  Assert-File $keaConfigSource
   Assert-File $serenaContext
   Assert-Directory $rulesSource
   Assert-Directory $crewSource
@@ -62,6 +64,7 @@ function Invoke-codex
   Install-UserFile -Source $agentsSource -Destination (Join-Path $codexTarget 'AGENTS.md')
   Install-UserFile -Source $workflowSource -Destination (Join-Path $codexTarget 'workflow.md')
   Install-UserFile -Source $configSource -Destination (Join-Path $codexTarget 'config.toml')
+  Install-UserFile -Source $keaConfigSource -Destination (Join-Path $codexTarget '.kea-mcp.toml')
   Install-UserFile -Source $serenaContext -Destination (Join-Path $codexTarget 'serena-context.yml')
   Install-UserFile -Source $hookJson -Destination (Join-Path $codexTarget 'hooks.json')
   foreach ($name in @('tool_gate.py', 'codex_hooks.py'))
