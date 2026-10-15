@@ -18,4 +18,11 @@ function Install-PowerShellProfile
   Install-UserFile -Source $sourceProfile -Destination $targetProfile
 
   Write-Log "PowerShell profile installed: $targetProfile" 'Success'
+
+  $sourceProfile = Join-Path $script:CONF_DIR 'powershell/Microsoft.PowerShell_profile.ps1'
+  $targetProfile = $PROFILE.CurrentUserCurrentHost
+
+  Install-UserFile -Source $sourceProfile -Destination $targetProfile
+
+  Write-Log "PowerShell profile installed: $targetProfile" 'Success'
 }
