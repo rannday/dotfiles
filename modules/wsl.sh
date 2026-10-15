@@ -11,7 +11,7 @@ module_wsl() {
   export PATH
 
   log_info "Installing WSL configuration to /etc/wsl.conf"
-  install_root_file "$CONF_DIR/wsl.conf" /etc/wsl.conf 0644
+  install_root_file "$CONF_DIR/wsl/wsl.conf" /etc/wsl.conf 0644
 
   log_info "Installing Windows Zed launcher to /usr/local/bin/zed"
   install_root_file "$CONF_DIR/zed/zed-wsl.sh" /usr/local/bin/zed 0755

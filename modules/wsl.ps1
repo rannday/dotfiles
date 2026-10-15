@@ -15,6 +15,9 @@ function Invoke-WslCommand
 
 function Invoke-wsl
 {
+  Write-Log 'Installing WSL configuration to Windows home'
+  Install-UserFile -Source (Join-Path $script:CONF_DIR 'wsl\.wslconfig') -Destination (Join-Path $HOME '.wslconfig')
+
   Assert-Command wsl.exe
   Write-Log 'Checking WSL status'
   Write-Host (Invoke-WslCommand -Arguments @('--status'))
