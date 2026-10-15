@@ -10,6 +10,9 @@ module_wsl() {
   PATH=$HOME/.local/bin:$HOME/.go/bin:$HOME/.go/current/bin:$HOME/go/bin:$HOME/.grok/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
   export PATH
 
+  log_info "Installing WSL configuration to /etc/wsl.conf"
+  install_root_file "$CONF_DIR/wsl.conf" /etc/wsl.conf 0644
+
   pkg_install_missing_named bash bash-completion git ssh-client curl ca-certificates \
     build-essential python3 python3-venv jq tar gzip xz-utils unzip ripgrep
 
@@ -27,6 +30,7 @@ module_wsl() {
   run_module serena
 
   log_ok "WSL development setup complete. Open a new Debian shell; authenticate Codex and Grok separately."
+  log_info "Run wsl --shutdown from Windows after setup to apply /etc/wsl.conf."
 }
 
 install_wsl_go() {
