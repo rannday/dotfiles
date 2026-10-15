@@ -13,6 +13,9 @@ module_wsl() {
   log_info "Installing WSL configuration to /etc/wsl.conf"
   install_root_file "$CONF_DIR/wsl.conf" /etc/wsl.conf 0644
 
+  log_info "Installing Windows Zed launcher to /usr/local/bin/zed"
+  install_root_file "$CONF_DIR/zed/zed-wsl.sh" /usr/local/bin/zed 0755
+
   pkg_install_missing_named bash bash-completion git ssh-client curl ca-certificates \
     build-essential python3 python3-venv jq tar gzip xz-utils unzip ripgrep
 
