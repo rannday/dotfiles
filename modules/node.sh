@@ -4,7 +4,11 @@
 module_node() {
   log_info "Setting up node"
 
-  pkg_install_missing_named node npm
+  if [ "$PROFILE" = wsl ]; then
+    install_wsl_node
+  else
+    pkg_install_missing_named node npm
+  fi
 
   log_ok "Node setup complete"
 }

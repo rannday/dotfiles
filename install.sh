@@ -28,6 +28,12 @@ main() {
   detect_package_backend
   load_package_backend
 
+  if [ "$PROFILE" = wsl ]; then
+    run_module wsl
+    log_ok "All done"
+    return
+  fi
+
   run_module shell
   #run_module prompt
   run_module sddm
@@ -42,7 +48,7 @@ main() {
   run_module grok
   #run_module antigravity
   run_module caveman
-  run_module gitkraken-cli
+  #run_module gitkraken-cli
   run_module fff_mcp
   run_module serena
   run_module zed
@@ -52,7 +58,8 @@ main() {
   log_ok "All done"
 }
 
-if (return 0 2>/dev/null); then
+# dash accepts top-level return even when executed. This guard is Bash-only.
+if [ -n "${BASH_VERSION:-}" ] && (return 0 2>/dev/null); then
   echo "Run, do not source." >&2
   return 1
 fi

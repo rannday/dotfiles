@@ -46,7 +46,7 @@ git = "https://github.com/xai-org/plugin-marketplace.git"
 [mcp_servers.gk]
 command = "gk"
 args = ["mcp"]
-enabled = true
+enabled = false
 
 [mcp_servers.github]
 type = "http"

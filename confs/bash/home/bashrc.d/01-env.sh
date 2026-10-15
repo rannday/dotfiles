@@ -75,7 +75,7 @@ if command -v go >/dev/null 2>&1 || [ -d "$HOME/go" ]; then
 fi
 
 # Node
-NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+NVM_DIR="$HOME/.nvm"
 
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   export NVM_DIR

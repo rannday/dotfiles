@@ -36,6 +36,8 @@ Options:
   --profile NAME       Install profile: desktop, server, wsl, minimal
   --dry-run            Print intended actions without making changes
   -h, --help           Show this help
+
+WSL SSH: Generate default, GitHub, and Varda keys only if missing.
 EOF
 }
 

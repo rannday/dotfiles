@@ -1,6 +1,7 @@
 Set-StrictMode -Version Latest
 
 $script:DRY_RUN = $false
+$script:WSL_ONLY = $false
 
 function Show-Usage
 {
@@ -8,8 +9,11 @@ function Show-Usage
 Usage: .\install.ps1 [options]
 
 Options:
+  --wsl-only           Set up Debian WSL without Windows modules
   --dry-run            Print intended actions without making changes
   -h, --help           Show this help
+
+WSL SSH: Generate default, GitHub, and Varda keys only if missing.
 '@
 }
 
@@ -71,6 +75,12 @@ function Initialize-Dotfiles
   {
     switch -Regex ($Arguments[$i])
     {
+      '^--wsl-only$'
+      {
+        $script:WSL_ONLY = $true
+        continue
+      }
+
       '^--dry-run$'
       {
         $script:DRY_RUN = $true

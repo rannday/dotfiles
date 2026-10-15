@@ -1,28 +1,33 @@
 Set-StrictMode -Version Latest
 
-function Install-Gopls
+function Install-GoTool
 {
-  $gopls = Get-Command gopls -ErrorAction SilentlyContinue
-  if (-not $gopls)
+  param(
+    [string]$Name,
+    [string]$Package
+  )
+
+  $tool = Get-Command $Name -ErrorAction SilentlyContinue
+  if (-not $tool)
   {
-    $goplsPath = Join-Path $HOME 'go\bin\gopls.exe'
-    if (Test-Path -LiteralPath $goplsPath -PathType Leaf)
+    $toolPath = Join-Path $HOME "go\bin\$Name.exe"
+    if (Test-Path -LiteralPath $toolPath -PathType Leaf)
     {
-      $gopls = $goplsPath
+      $tool = $toolPath
     }
   }
 
-  if ($gopls)
+  if ($tool)
   {
-    Write-Log 'gopls already installed' 'Success'
+    Write-Log "$Name already installed" 'Success'
     return
   }
 
-  Write-Log 'Installing gopls'
+  Write-Log "Installing $Name"
 
   if ($script:DRY_RUN)
   {
-    Write-Log 'DRY RUN: go install golang.org/x/tools/gopls@latest'
+    Write-Log "DRY RUN: go install $Package"
     return
   }
 
@@ -41,8 +46,8 @@ function Install-Gopls
   }
 
   Invoke-Checked {
-    & $goExe install golang.org/x/tools/gopls@latest
-  } 'go install golang.org/x/tools/gopls@latest'
+    & $goExe install $Package
+  } "go install $Package"
 }
 
 function Invoke-go
@@ -93,7 +98,9 @@ function Invoke-go
     }
   }
 
-  Install-Gopls
+  Install-GoTool -Name 'gopls' -Package 'golang.org/x/tools/gopls@latest'
+  Install-GoTool -Name 'govulncheck' -Package 'golang.org/x/vuln/cmd/govulncheck@latest'
+  Install-GoTool -Name 'golangci-lint' -Package 'github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0'
 
   Write-Log 'Go setup complete' 'Success'
 }

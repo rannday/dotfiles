@@ -13,6 +13,13 @@ function Main
 
   Initialize-Dotfiles @args
 
+  if ($script:WSL_ONLY)
+  {
+    Invoke-DotfilesModule wsl
+    Write-Log 'All done' 'Success'
+    return
+  }
+
   Assert-Winget
   #Update-WingetSources
 
@@ -27,10 +34,11 @@ function Main
   Invoke-DotfilesModule grok
   #Invoke-DotfilesModule antigravity
   Invoke-DotfilesModule caveman
-  Invoke-DotfilesModule gitkraken-cli
+  #Invoke-DotfilesModule gitkraken-cli
   Invoke-DotfilesModule fff_mcp
   Invoke-DotfilesModule serena
   Invoke-DotfilesModule zed
+  Invoke-DotfilesModule wsl
   #Invoke-DotfilesModule alacritty
   #Invoke-DotfilesModule zellij
 

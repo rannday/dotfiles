@@ -8,8 +8,18 @@ module_codex() {
 
   pkg_install_missing_named jq
 
-  if command -v codex >/dev/null 2>&1; then
+  if command -v codex >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codex" ]; then
     log_ok "Codex CLI already installed"
+  elif [ "$PROFILE" = wsl ]; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      log_info "DRY RUN: install Codex from https://chatgpt.com/codex/install.sh"
+    else
+      (codex_installer=$(mktemp)
+        trap 'rm -f -- "$codex_installer"' EXIT HUP INT TERM
+        curl -fsSL https://chatgpt.com/codex/install.sh -o "$codex_installer"
+        sh "$codex_installer"
+      )
+    fi
   else
     pkg_aur_install_missing_named openai-codex
   fi
