@@ -12,9 +12,8 @@ function Invoke-shell
 
 function Install-PowerShellProfile
 {
-  $sourceProfile = Join-Path $script:CONF_DIR 'Microsoft.PowerShell_profile.ps1'
-  $profileDir = Join-Path $HOME 'Documents\PowerShell'
-  $targetProfile = Join-Path $profileDir 'Microsoft.PowerShell_profile.ps1'
+  $sourceProfile = Join-Path $script:CONF_DIR 'powershell/profile.ps1'
+  $targetProfile = $PROFILE.CurrentUserAllHosts
 
   Install-UserFile -Source $sourceProfile -Destination $targetProfile
 
