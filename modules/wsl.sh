@@ -21,8 +21,7 @@ module_wsl() {
 
   run_module shell
   run_module git
-  . "$MODULE_DIR/ssh-wsl.sh"
-  module_ssh_wsl
+  run_module ssh
   run_module go
   run_module node
   run_module uv

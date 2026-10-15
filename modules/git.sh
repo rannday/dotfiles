@@ -10,7 +10,7 @@ module_git() {
 
   require_dir "$GIT_DIR"
 
-  for git_file in .gitconfig .gitconfig-varda; do
+  for git_file in .gitconfig .gitconfig-projects .gitconfig-varda; do
     require_file "$GIT_DIR/$git_file"
     install_user_file "$GIT_DIR/$git_file" "$HOME/$git_file" 0644
   done
