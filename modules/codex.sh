@@ -8,6 +8,10 @@ module_codex() {
 
   pkg_install_missing_named jq
 
+  if [ "$PROFILE" = wsl ]; then
+    pkg_install_missing_named bubblewrap
+  fi
+
   if command -v codex >/dev/null 2>&1 || [ -x "$HOME/.local/bin/codex" ]; then
     log_ok "Codex CLI already installed"
   elif [ "$PROFILE" = wsl ]; then
