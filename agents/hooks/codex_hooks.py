@@ -9,6 +9,7 @@ import os
 import re
 import shlex
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -544,9 +545,68 @@ def protected_path_assignment(word: str, shell: str):
     protected_shell_word(entry) for entry in entries)
 
 
+def literal_write_command(command: str, shell: str) -> str:
+  """Mask data only in complete, literal write forms; retain every target.
+
+  This is intentionally not a general shell parser. In particular, a heredoc
+  delivered to an interpreter is executable input, not document content.
+  """
+  target = r'''(?:'[^'\r\n]*'|"[^"$`\r\n]*"|[\w./\\:*?\[\]-]+)'''
+  writes = []
+  if shell in ('bash', 'sh', 'zsh'):
+    # Accept one quoted delimiter and one output redirect, in either order.
+    redirect = r'(?P<redirect>>{1,2}\s*' + target + r')'
+    heredoc = r'''<<(?P<tabs>-?)\s*(?P<quote>['"])(?P<delimiter>[a-zA-Z_][a-zA-Z_0-9]*)(?P=quote)'''
+    while True:
+      match = None
+      for header in (redirect + r'\s*' + heredoc, heredoc + r'\s*' + redirect):
+        match = re.match(r'\A\s*cat\s+' + header + r'[ \t]*\n', command)
+        if match:
+          break
+      if not match:
+        break
+      offset = match.end()
+      # Only LF terminates POSIX shell lines; splitlines would also treat a
+      # vertical tab inside data as a command boundary.
+      for line in command[offset:].split('\n'):
+        if (line.lstrip('\t') if match['tabs'] else line) == match['delimiter']:
+          # Retain targets and reinspect the tail, including consecutive writes.
+          # A delimiter must occupy a complete line inside the original data.
+          writes.append('cat ' + match['redirect'] + '\n')
+          command = command[offset + len(line) + 1:]
+          break
+        offset += len(line) + 1
+      else:
+        break  # Incomplete heredoc: no content exemption.
+    match = re.fullmatch(r"\s*printf\s+'%s(?:\\n)?'\s+'[^']*'\s*" + redirect + r'\s*', command)
+    if match:
+      return ''.join(writes) + 'printf ' + match['redirect']
+  if shell in ('powershell', 'pwsh'):
+    writer = r'(?i:Set-Content|Add-Content)\s+-(?i:LiteralPath|Path)\s+' + target
+    # PowerShell single quotes escape an apostrophe by doubling it.
+    literal = r"'(?:[^']|'')*'"
+    match = re.fullmatch(r'\s*(?P<writer>' + writer + r')\s+-(?i:Value)\s+' + literal + r'\s*', command)
+    if match:
+      return match['writer']
+    # A here-string terminator must start its own line. No expansions occur
+    # in the single-quoted form; double-quoted here-strings remain inspected.
+    here = r"@'\r?\n(?:(?!^'@)[\s\S])*?\r?\n'@"
+    for pattern in (r'\s*(?P<writer>' + writer + r')\s+-(?i:Value)\s+' + here + r'\s*',
+        r'\s*' + here + r'\s*\|\s*(?P<writer>' + writer + r')\s*'):
+      match = re.fullmatch(pattern, command, re.MULTILINE)
+      if match:
+        return match['writer']
+  return ''.join(writes) + command
+
+
 def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True) -> bool:
   shell = shell.replace('\\', '/').rsplit('/', 1)[-1].lower().removesuffix('.exe')
   shell = shell or ('powershell' if os.name == 'nt' else 'sh')
+  command = literal_write_command(command, shell)
+  if shell in ('pwsh', 'powershell') and re.search(r'''@['"]\r?\n''', command):
+    # An unclassified here-string can feed executable input (Invoke-Expression,
+    # for example). The word lexer cannot establish its execution boundary.
+    return True
   # The bounded lexer does not parse comments, here-documents or here-strings.
   # Their delimiters cannot prove an assignment is outside an expression.
   if '#' in command or '<<' in command or '\r' in command or shell in ('pwsh', 'powershell') and any(
@@ -556,6 +616,11 @@ def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True) -
   starts = [(0, '')]
   assignments = set()
   parsed = secret_shell_words(command, substitutions, starts, shell, assignments)
+  if shell in ('bash', 'sh', 'zsh') and any(
+      left == right and left[1] == '<' for left, right in pairwise(starts)):
+    # Unsupported heredocs/here-strings may contain executable substitutions
+    # even inside quote characters. Do not let the ordinary word lexer hide them.
+    return True
   words = [word for word, _ in parsed]
   if any(shell_secret_paths(body, shell, path_lists=False) for body in substitutions):
     return True

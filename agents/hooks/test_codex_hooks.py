@@ -275,6 +275,98 @@ class CodexHooksTests(unittest.TestCase):
       self.assertNotEqual(self.policy(event(tool='mcp__filesystem__' + tool,
         tool_input=data)).get('decision'), 'deny')
 
+  def test_documentation_literal_writes(self):
+    body = 'Sanitize .env\n```sh\ncat keys/example.pem\n```'
+    commands = (
+      ('bash', "cat > docs/isc-report-evidence.md <<'REPORT'\n" + body + '\nREPORT\n'),
+      ('sh', "cat <<'REPORT' > docs/isc-report-submission.md\n" + body + '\nREPORT\n'),
+      ('bash', "cat <<-'REPORT' > report.txt\n\t" + body.replace('\n', '\n\t') + '\n\tREPORT\n'),
+      ('bash', ''.join("cat > docs/" + name + " <<'REPORT'\n" + body + '\nREPORT\n'
+        for name in ('isc-report-evidence.md', 'isc-report-submission.md'))),
+      ('bash', "printf '%s\\n' '" + body + "' > docs/isc-report-evidence.md"),
+      ('powershell', "Set-Content -LiteralPath docs/isc-report-submission.md -Value '" + body + "'"),
+      ('pwsh', "Set-Content -Path report.txt -Value @'\n" + body + "\n'@\n"),
+      ('pwsh', "@'\n" + body + "\n'@ | Set-Content -LiteralPath report.txt"),
+      ('bash', "printf '%s\\n' '.env' > report.txt"),
+      ('bash', "printf '%s\\n' 'keys/example.pem' > report.txt"),
+      ('pwsh', "Set-Content -LiteralPath report.txt -Value '.env'"),
+      ('pwsh', "Set-Content -LiteralPath report.txt -Value 'keys/example.pem'"),
+    )
+    for shell, command in commands:
+      with self.subTest(shell=shell, command=command):
+        self.assertEqual(self.policy(event(tool='exec_command',
+          tool_input={'cmd': command, 'shell': shell})), {})
+
+  def test_documentation_writes_through_shell_and_wsl_wrappers(self):
+    command = "cat > report.md <<'EOF'\n.env\n```sh\ncat example.pem\n```\nEOF\n"
+    for tool, shell, wrapped in (
+      ('Bash', 'bash', command),
+      ('exec_command', 'powershell', "wsl.exe --distribution Debian --cd /tmp --exec /bin/bash -c '" + command.replace("'EOF'", '"EOF"') + "'"),
+      ('exec_command', 'powershell', "wsl.exe -d Debian '" + command.replace("'EOF'", '"EOF"') + "'"),
+      ('exec_command', 'bash', "bash -c '" + command.replace("'", "'\"'\"'") + "'"),
+    ):
+      with self.subTest(tool=tool, wrapped=wrapped):
+        self.assertEqual(self.policy(event(tool=tool,
+          tool_input={'cmd': wrapped, 'shell': shell})), {})
+
+  def test_literal_documentation_write_executes_only_in_disposable_directory(self):
+    body = 'Sanitize .env\n```sh\ncat keys/example.pem\n```'
+    if os.name == 'nt':
+      shell = 'powershell'
+      command = "Set-Content -LiteralPath report.md -Value @'\n" + body + "\n'@\n"
+      commands = [(shell, command, ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', command])]
+    else:
+      shell = 'sh'
+      command = "cat > report.md <<'EOF'\n" + body + '\nEOF\n'
+      commands = [(shell, command, ['/bin/' + shell, '-c', command]) for shell in ('sh', 'bash')]
+    for shell, command, argv in commands:
+      with self.subTest(shell=shell):
+        raw = event(tool='exec_command', tool_input={'cmd': command, 'shell': shell})
+        with patch.object(sys, 'stdin', io.StringIO(json.dumps(raw))), \
+          patch.object(sys, 'stdout', io.StringIO()) as stdout:
+          self.assertEqual(codex_hooks.main(), 0)
+          self.assertEqual(stdout.getvalue(), '')
+        result = subprocess.run(argv, cwd=self.temp.name, capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((Path(self.temp.name) / 'report.md').read_text(encoding='utf-8').strip(), body)
+        self.assertEqual([path.name for path in Path(self.temp.name).iterdir()], ['report.md'])
+
+  def test_documentation_patch_and_structured_write_contents_are_inert(self):
+    body = 'Mention .env and keys/example.pem\n```sh\ncat .env\n```'
+    for name in ('isc-report-evidence.md', 'isc-report-submission.md'):
+      for operation in ('Add', 'Update'):
+        command = ('*** Begin Patch\n*** ' + operation + ' File: docs/' + name
+          + '\n+' + body.replace('\n', '\n+') + '\n*** End Patch')
+        self.assertEqual(self.policy(event(tool='apply_patch', tool_input={'command': command})), {})
+      self.assertEqual(self.policy(event(tool='mcp__filesystem__write_file',
+        tool_input={'path': 'docs/' + name, 'content': body})), {})
+
+  def test_documentation_exemptions_preserve_protected_targets_and_execution(self):
+    commands = (
+      ('bash', "cat > .env <<'EOF'\ntext\nEOF\n"),
+      ('bash', "cat <<'EOF' > key.pem\ntext\nEOF\n"),
+      ('bash', "cat <<'EOF' > report.md\ntext\nEOF\ncat .env"),
+      ('bash', "cat > report.md <<'EOF'\n.env\nEOF\ncat > key.pem <<'EOF'\ntext\nEOF\n"),
+      ('bash', "cat <<'EOF' > report.md < key.pem\ntext\nEOF\n"),
+      ('bash', "cat <<'EOF' | sh\ncat .env\nEOF\n"),
+      ('bash', "sh <<'EOF'\ncat .env\nEOF\n"),
+      ('bash', "cat <<EOF > report.md\n$(cat .env)\nEOF\n"),
+      ('bash', "cat <<EOF > report.md\n'$(cat .env)'\nEOF\n"),
+      ('bash', "printf '%s\\n' \"$(cat key.pem)\" > report.md"),
+      ('bash', "printf '%s\\n' '.env' > .env"),
+      ('bash', "printf '%s\\n' 'text' > *.pem"),
+      ('pwsh', "Set-Content -LiteralPath key.pem -Value '.env'"),
+      ('pwsh', "Set-Content -Path '*.pem' -Value 'text'"),
+      ('pwsh', "Set-Content -LiteralPath report.md -Value \"$(Get-Content .env)\""),
+      ('pwsh', "@'\nGet-Content .env\n'@ | Invoke-Expression"),
+      ('pwsh', "Set-Content -Path report.md -Value @'\nGet-Content .env\n'@ -PassThru | Invoke-Expression"),
+      ('bash', "cat <<'EOF' > report.md\n.env\nNOT_EOF"),
+    )
+    for shell, command in commands:
+      with self.subTest(shell=shell, command=command):
+        self.assertEqual(self.policy(event(tool='exec_command',
+          tool_input={'cmd': command, 'shell': shell}))['decision'], 'deny')
+
   def test_wrapped_shell_secret_paths_stay_denied(self):
     for command in ('gc .env', 'Get-Content (".env") -TotalCount 10',
       'pwsh -c "gc .env"', 'cmd /c "type secret.pem"',
