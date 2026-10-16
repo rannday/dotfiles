@@ -249,7 +249,8 @@ def ansi_c_text(text: str) -> str:
     decode, text, flags=re.DOTALL).split('\0', 1)[0]
 
 
-def secret_shell_words(command: str, substitutions: list[str], starts: list[tuple[int, str]], shell: str) -> list[tuple[str, str]]:
+def secret_shell_words(command: str, substitutions: list[str], starts: list[tuple[int, str]], shell: str,
+    assignments: set[int] | None = None) -> list[tuple[str, str]]:
   """Join adjacent quoted fragments without discarding Windows path separators."""
   words, word, literal_word, quote = [], [], [], ''
   script_blocks = []
@@ -270,9 +271,11 @@ def secret_shell_words(command: str, substitutions: list[str], starts: list[tupl
         spelling = '{' + spelling[1:]
     word.append(fragment)
     literal_word.append(spelling)
-  index = 0
+  index, word_start = 0, None
   while index < len(command):
     char = command[index]
+    if word_start is None and not char.isspace() and char not in '();,|&<>':
+      word_start = index
     if shell in ('pwsh', 'powershell') and not quote and char == '[' and (
         not word or word[-1].endswith('=')):
       cast = re.match(r'\[[a-zA-Z_][\w.,\[\]]*\](?=\s*(?:\$|::|[\"\'(]|\[))', command[index:])
@@ -349,6 +352,17 @@ def secret_shell_words(command: str, substitutions: list[str], starts: list[tupl
         assignment = bool(re.fullmatch(r'[a-zA-Z_][\w]*', prefix)
           and all('\ue00a' in pattern for _, pattern in preceding))
       if assignment:
+        # Quote removal can make a filename look like an assignment name.
+        # Record only names written literally, with proven assignment prefixes.
+        name = command[word_start:index] if word_start is not None else ''
+        name_pattern = (r'\$[a-zA-Z_][a-zA-Z_0-9:]*' if shell in ('pwsh', 'powershell')
+          else r'[a-zA-Z_][a-zA-Z_0-9]*')
+        # After grouping/substitution syntax, apparent statement boundaries
+        # may belong to an expression the bounded lexer cannot fully parse.
+        if assignments is not None and not any(mark in command[:word_start]
+            for mark in '(){}`') and re.fullmatch(name_pattern, name) and all(
+            preceding in assignments for preceding in range(starts[-1][0], len(words))):
+          assignments.add(len(words))
         word.append('=')
         literal_word.append('\ue00a')
         index += 1
@@ -368,6 +382,7 @@ def secret_shell_words(command: str, substitutions: list[str], starts: list[tupl
       if word:
         words.append((''.join(word), ''.join(literal_word)))
         word, literal_word = [], []
+      word_start = None
       if char == '{':
         script_blocks.append(hashtable)
       else:
@@ -395,6 +410,7 @@ def secret_shell_words(command: str, substitutions: list[str], starts: list[tupl
       if word:
         words.append((''.join(word), ''.join(literal_word)))
         word, literal_word = [], []
+      word_start = None
       if char in ';|&()<>\n\r':
         starts.append((len(words), char))
     else:
@@ -496,15 +512,74 @@ def protected_shell_word(word: str) -> bool:
   return any(shell_patterns_overlap(pattern, secret) for secret in protected)
 
 
-def shell_secret_paths(command: str, shell: str = '') -> bool:
+def protected_path_assignment(word: str, shell: str):
+  # PATH has defined list semantics. Other assignments may be single filenames
+  # containing ':' or ';', so keep their existing conservative path checks.
+  key, assignment, value = word.partition('\ue00a')
+  posix = shell in ('bash', 'sh', 'zsh') and key == 'PATH'
+  windows = shell in ('powershell', 'pwsh') and key.lower() == '$env:path'
+  if not assignment or not (posix or windows):
+    return None
+  separator = ':' if posix else ';'
+  entries, begin, index, conservative = [], 0, 0, False
+  while index < len(value):
+    # A separator inside an expansion belongs to its expression, not the list.
+    if value.startswith('$(', index):
+      index, _ = substitution_end(value, index)
+      continue
+    expansion = re.match(r'\$\{[^}]*\}?|`[^`]*`?', value[index:])
+    if expansion:
+      index += expansion.end()
+      continue
+    if value[index] in '*?[{':
+      # Also retain whole-value matching for glob/brace expressions: splitting
+      # their syntax alone could lose a protected alternative.
+      conservative = True
+    if value[index] == separator:
+      entries.append(value[begin:index])
+      begin = index + 1
+    index += 1
+  entries.append(value[begin:])
+  return (conservative and protected_shell_word(value)) or any(
+    protected_shell_word(entry) for entry in entries)
+
+
+def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True) -> bool:
   shell = shell.replace('\\', '/').rsplit('/', 1)[-1].lower().removesuffix('.exe')
   shell = shell or ('powershell' if os.name == 'nt' else 'sh')
+  # The bounded lexer does not parse comments, here-documents or here-strings.
+  # Their delimiters cannot prove an assignment is outside an expression.
+  if '#' in command or '<<' in command or '\r' in command or shell in ('pwsh', 'powershell') and any(
+      mark in command for mark in ("@'", '@"')):
+    path_lists = False
   substitutions = []
   starts = [(0, '')]
-  parsed = secret_shell_words(command, substitutions, starts, shell)
+  assignments = set()
+  parsed = secret_shell_words(command, substitutions, starts, shell, assignments)
   words = [word for word, _ in parsed]
-  if any(shell_secret_paths(body, shell) for body in substitutions):
+  if any(shell_secret_paths(body, shell, path_lists=False) for body in substitutions):
     return True
+  depth = 0
+  for (begin, boundary), (end, following) in zip(starts, starts[1:] + [(len(words), '')]):
+    depth += boundary in ('(', '{')
+    if boundary in (')', '}'):
+      depth = max(0, depth - 1)
+    # This is deliberately a narrow proof of statement context, not a shell
+    # parser. Redirections, pipeline operators and nested expressions do not
+    # establish an environment assignment; keep whole-filename checks there.
+    if not path_lists or depth or boundary not in ('', ';', '\n', '\r'):
+      continue
+    if shell in ('pwsh', 'powershell') and (end != begin + 1 or following not in ('', ';', '\n', '\r')):
+      continue
+    for index in range(begin, end):
+      if index not in assignments:
+        break
+      raw, pattern = parsed[index]
+      protected = protected_path_assignment(pattern, shell)
+      if protected is True:
+        return True
+      if protected is False:
+        parsed[index] = (raw, '')  # Proven assignment; entries checked above.
   # Only rg's negative glob arguments exclude paths. Keep shell expansions
   # and every other argument subject to the normal protected-path checks.
   for (begin, _), (end, _) in zip(starts, starts[1:] + [(len(words), '')]):
@@ -648,7 +723,7 @@ def shell_secret_paths(command: str, shell: str = '') -> bool:
       payload = wsl_payload(words[index + 1:])
       if payload and not payload[1]:
         nested = ' '.join(payload[0])
-        if nested != command and shell_secret_paths(nested, 'sh'):
+        if nested != command and shell_secret_paths(nested, 'sh', path_lists):
           return True
       continue
     if executable not in switches:
@@ -657,7 +732,7 @@ def shell_secret_paths(command: str, shell: str = '') -> bool:
       if words[offset].lower() in switches[executable]:
         payload = words[offset + 1:]
         nested = payload[0] if len(payload) == 1 else ' '.join(payload)
-        if nested != command and shell_secret_paths(nested, executable):
+        if nested != command and shell_secret_paths(nested, executable, path_lists):
           return True
         break
   return False

@@ -907,6 +907,177 @@ class CodexHooksTests(unittest.TestCase):
         self.assertNotEqual(self.shell_read(command,
           tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
 
+  def test_assignment_path_lists_are_separate_path_candidates(self):
+    allowed = (
+      ('bash', 'PATH="$PWD/build-quality-venv/bin:$PATH" python3 -B scripts/quality.py'),
+      ('sh', 'PATH="$PWD/build-quality-venv/bin:$PATH" python3 -B scripts/quality.py'),
+      ('bash', 'python3 -B scripts/quality.py'),
+      ('bash', 'cmake --build build'),
+      ('bash', 'PATH="$PWD/bin:$PATH" MODE=check python3 "scripts/quality check.py"'),
+      ('bash', 'PATH="/tmp/tools with spaces/bin:$PATH" cmake --build "build [draft].txt"'),
+      ('bash', 'PATH="/tmp/.env.example/bin:$PATH" python3 scripts/quality.py'),
+      ('zsh', 'MODE="two words" PATH="${PWD}/bin:${PATH}" cmake --build build'),
+      ('bash', 'PATH="$(printf bin):$PATH" python3 scripts/quality.py'),
+      ('bash', 'PATH="bin:$PATH" python3 "scripts/a;b.txt" "build/key.pem.txt"'),
+      ('pwsh', '$env:PATH="$PWD/build-quality-venv/bin;$env:PATH"; python -B scripts/quality.py'),
+      ('powershell', '$env:PATH="C:\\tools;$env:PATH"; cmake --build build'),
+    )
+    for shell, command in allowed:
+      with self.subTest(shell=shell, command=command):
+        self.assertEqual(self.shell_read(command,
+          tool_input={'cmd': command, 'shell': shell}), {})
+
+  def test_assignment_path_lists_preserve_protected_entries_and_executed_bodies(self):
+    denied = (
+      ('bash', 'PATH="/tmp/key.pem:$PATH" python3 scripts/quality.py'),
+      ('bash', 'PATH="$PATH:./.env" python3 scripts/quality.py'),
+      ('bash', 'PATH="/tmp/.en${suffix}:$PATH" cmake --build build'),
+      ('bash', 'PATH="$(cat /tmp/key.pem):$PATH" python3 scripts/quality.py'),
+      ('bash', 'PATH="$(printf bin):$PATH" cat <./.env'),
+      ('bash', 'PATH="bin:$PATH" cmake --build build && cat /tmp/key.pem'),
+      ('bash', 'PATH="bin:$PATH" python3 scripts/quality.py >./key.pem'),
+      ('bash', 'PATH="bin:$PATH" cat "prefix:$suffix"'),
+      ('pwsh', '$env:PATH="C:\\keys\\key.pem;$env:PATH"; python scripts/quality.py'),
+      ('pwsh', '$env:PATH="$env:PATH;.env"; cmake --build build'),
+      ('bash', 'PATH=*:./.env cmake --build build'),
+      ('pwsh', '$env:PATH="*;$env:PATH;.env"; cmake --build build'),
+      ('pwsh', '$env:PATH="$(Get-Content .env);$env:PATH"; python scripts/quality.py'),
+      ('bash', 'PATH="bin:$PATH" cat /tmp/key.pem'),
+      ('bash', 'PATH="bin:$PATH" cat ../.env'),
+      ('bash', 'PATH="bin:$PATH"; (cat .env)'),
+      ('bash', 'PATH="bin:$PATH" cat key.{txt,pem}'),
+      ('bash', 'PATH="bin:$PATH" cat .en${suffix}'),
+      ('bash', 'PATH="bin:$PATH" cat *.pem'),
+      ('bash', 'PATH="bin:$PATH" cat "PATH=$suffix"'),
+      ('bash', 'SOURCE="bin:$SOURCE" python3 scripts/quality.py'),
+      ('bash', 'PATH={bin:tools,key.pem}:$PATH python3 scripts/quality.py'),
+      ('bash', 'PATH=[.:x]env:$PATH python3 scripts/quality.py'),
+      ('pwsh', '$source="bin;$source"; python scripts/quality.py'),
+    )
+    for shell, command in denied:
+      with self.subTest(shell=shell, command=command):
+        self.assertEqual(self.shell_read(command,
+          tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_path_shaped_filename_operands_keep_whole_path_checks(self):
+    for shell in ('bash', 'sh', 'zsh'):
+      for operand in ('PATH=prefix:$suffix', 'PATH=.en${suffix}', 'PATH=key.p${suffix}'):
+        for command in (f'cat <{operand}', f'cat >{operand}', f'cat {operand}',
+            f'cat <{operand} PATH="bin:$PATH"', f'echo ok; cat >{operand}'):
+          with self.subTest(shell=shell, command=command):
+            self.assertEqual(self.shell_read(command,
+              tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_consumed_powershell_path_assignments_keep_whole_path_checks(self):
+    for shell in ('pwsh', 'powershell'):
+      for value in ('prefix;$suffix', '.en${suffix}', 'key.p${suffix}'):
+        assignment = f'$env:PATH="{value}"'
+        for command in (f'Get-Content ({assignment})', f'Get-Content (({assignment}))',
+            f'Get-Content $({assignment})', f'Get-Content $({assignment}; $env:PATH)',
+            f'Unknown-Command ({assignment})', f'Get-Content >{assignment}'):
+          with self.subTest(shell=shell, command=command):
+            self.assertEqual(self.shell_read(command,
+              tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_standalone_path_assignments_keep_empty_and_quoted_entries(self):
+    for shell in ('bash', 'sh', 'zsh'):
+      for value in ('', ':', ':$PATH:', '/tmp/bin:/opt/bin:$PATH',
+          '/tmp/tools with spaces/bin:$PATH', '/tmp/odd[dir]/bin:$PATH'):
+        for command in (f'PATH="{value}" python3 -B scripts/quality.py',
+            f'MODE="two words" PATH="{value}"; cmake --build build',
+            f'echo ready; PATH="{value}" cmake --build build'):
+          with self.subTest(shell=shell, command=command):
+            self.assertEqual(self.shell_read(command,
+              tool_input={'cmd': command, 'shell': shell}), {})
+    for shell in ('pwsh', 'powershell'):
+      for value in ('', ';', ';$env:PATH;', 'C:\\tools;D:\\bin;$env:PATH',
+          'C:\\tools with spaces\\bin;;$env:PATH'):
+        command = f'$env:PATH="{value}"; cmake --build build'
+        with self.subTest(shell=shell, command=command):
+          self.assertEqual(self.shell_read(command,
+            tool_input={'cmd': command, 'shell': shell}), {})
+
+  def test_path_assignment_protected_names_remain_detected(self):
+    for name in ('.env', '.env.seed', '.env.local', '.env.development',
+        '.env.production', '.env.test', '.env.stage.local', 'key.pem', 'KEY.PEM'):
+      for shell, command in (
+          ('bash', f'PATH="/tmp/{name}:$PATH" python3 scripts/quality.py'),
+          ('sh', f'PATH="$PATH:./{name}" cmake --build build'),
+          ('pwsh', f'$env:PATH="C:\\fixture\\{name};$env:PATH"; cmake --build build'),
+          ('bash', f'cat <PATH=prefix:./{name}')):
+        with self.subTest(shell=shell, command=command):
+          self.assertEqual(self.shell_read(command,
+            tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_uncertain_path_assignment_roles_keep_conservative_checks(self):
+    denied = (
+      ('bash', '"PATH"="prefix:$suffix"'),
+      ('bash', '""PATH="prefix:$suffix"'),
+      ('bash', 'P"AT"H="prefix:$suffix"'),
+      ('bash', '"MODE"=check PATH="prefix:$suffix"'),
+      ('sh', 'M\u00d6DE=check PATH="prefix:$suffix"'),
+      ('bash', 'cat "PATH=prefix:$suffix"'),
+      ('bash', 'cat >"PATH=prefix:$suffix"'),
+      ('bash', 'cat >out PATH="prefix:$suffix"'),
+      ('bash', 'echo ok && PATH="prefix:$suffix" cmake --build build'),
+      ('bash', '(PATH="prefix:$suffix" cmake --build build)'),
+      ('bash', 'echo "$(PATH="prefix:$suffix" cmake --build build)"'),
+      ('bash', 'echo "$(sh -c \'PATH="prefix:$suffix" cmake --build build\')"'),
+      ('bash', 'cat $(# )\nPATH="prefix:$suffix"\nprintf %s "$PATH"\n)'),
+      ('bash', 'cat $(cat <<EOF\n)\nEOF\nPATH="prefix:$suffix"\nprintf %s "$PATH"\n)'),
+      ('bash', 'cat $(case x in x) :;; esac\nPATH="prefix:$suffix"\nprintf %s "$PATH"\n)'),
+      ('bash', 'cat <(case x in x) :;; esac\nPATH="prefix:$suffix"\nprintf %s "$PATH"\n)'),
+      ('bash', 'cat \rPATH=prefix:$suffix'),
+      ('sh', 'cat \rPATH=prefix:$suffix'),
+      ('zsh', 'cat \rPATH=prefix:$suffix'),
+      ('pwsh', 'Unknown-Command $env:PATH="prefix;$suffix"'),
+      ('pwsh', '$env:PATH="prefix;$suffix" | Unknown-Command'),
+      ('pwsh', 'Unknown-Command { $env:PATH="prefix;$suffix" }'),
+      ('pwsh', 'Get-Content $(Write-Output ready; $env:PATH="prefix;$suffix")'),
+      ('pwsh', 'Get-Content (# )\n$env:PATH="prefix;$suffix")'),
+      ('pwsh', 'Get-Content (# )\n$env:PATH="prefix;$suffix"\n)'),
+      ('pwsh', 'Get-Content (# )\n$env:PATH="prefix;$suffix";\n)'),
+      ('pwsh', 'Unknown-Command { # }\n$env:PATH="prefix;$suffix" }'),
+      ('pwsh', 'Unknown-Command { # }\n$env:PATH="prefix;$suffix"\n}'),
+      ('pwsh', "Get-Content $(@'\n')'\n'@\n$env:PATH=\"prefix;$suffix\"\n$env:PATH\n)"),
+      ('pwsh', '$env:PATH = "prefix;$suffix"; cmake --build build'),
+      ('cmd', 'set PATH=prefix:%suffix%'),
+    )
+    for shell, command in denied:
+      with self.subTest(shell=shell, command=command):
+        self.assertEqual(self.shell_read(command,
+          tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
+
+  def test_path_assignment_pretooluse_protocol(self):
+    for shell, command, denied in (
+        ('bash', 'PATH="$PWD/build-quality-venv/bin:$PATH" python3 -B scripts/quality.py', False),
+        ('bash', 'PATH="bin:$PATH" cat .env', True),
+        ('bash', 'cat <PATH=prefix:$suffix', True),
+        ('bash', 'cat >PATH=prefix:$suffix', True),
+        ('pwsh', 'Get-Content ($env:PATH="prefix;$suffix")', True)):
+      raw = event(tool='exec_command', cwd=self.temp.name,
+        tool_input={'cmd': command, 'shell': shell})
+      with self.subTest(command=command), patch.object(sys, 'stdin', io.StringIO(json.dumps(raw))), \
+        patch.object(sys, 'stdout', io.StringIO()) as stdout, \
+        patch.object(sys, 'stderr', io.StringIO()) as stderr:
+        self.assertEqual(codex_hooks.main(), 0)
+        self.assertEqual(stderr.getvalue(), '')
+        if denied:
+          self.assertEqual(json.loads(stdout.getvalue()), {'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse', 'permissionDecision': 'deny',
+            'permissionDecisionReason': 'Protected .env or PEM path. Use a redacted example file.',
+          }})
+        else:
+          self.assertEqual(stdout.getvalue(), '')
+
+  def test_wildcard_overlap_uses_complete_candidate_names(self):
+    for candidate, protected, expected in (
+        ('bin:*', '*.pem', True), ('bin', '*.pem', False),
+        ('*.txt', '*.pem', False), ('.en?', '.env', True),
+        ('key.pem.txt', '*.pem', False)):
+      with self.subTest(candidate=candidate):
+        self.assertEqual(codex_hooks.shell_patterns_overlap(candidate, protected), expected)
+
   def test_installer_command_strings_keep_dynamic_assignments_allowed(self):
     windows = r'''$script:CONF_DIR = 'C:\Users\rannd\Projects\dotfiles\confs'
 $script:DRY_RUN = $false
