@@ -4,15 +4,11 @@ model_auto_compact_token_limit = 80000
 tool_output_token_limit = 12000
 personality = "pragmatic"
 web_search = "cached"
-sandbox_mode = "workspace-write"
+default_permissions = "workspace-git"
 approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 developer_instructions = """
 Follow ~/.codex/AGENTS.md for voice, tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
-On Linux, workspace-write can keep .git metadata read-only, including resolved Git directories for worktrees. Keep this protection and prefer Git MCP with an explicit repo_path for supported local Git operations.
-For an explicitly authorized Git operation requiring .git writes, if Git MCP lacks the required tool or sandbox permissions block execution, request exec_command with sandbox_permissions = "require_escalated" for the exact necessary Git command, an explicit repository workdir, and a justification naming the authorized operation and required metadata writes. Omit reusable prefix_rule approvals; let the existing approval reviewer decide. Escalation requests do not authorize additional operations or override rules or security hooks.
-A push can update the remote before local remote-tracking refs fail to update. Check the remote ref with git ls-remote and compare local refs before retrying; request separately reviewed execution for any necessary authorized fetch or ref repair. Never repeat a push solely because its local metadata update failed.
-Do not change ownership, permissions, writable roots, sandbox mode, approval policies, protected-path rules, or hooks to work around Git metadata protection.
 """
 
 [tui]
@@ -31,13 +27,20 @@ memories = true
 enabled = true
 max_concurrent_threads_per_session = 3
 
-[sandbox_workspace_write]
-network_access = true
-writable_roots = [
-  "/home/rann/.cache/go-build",
-  "/home/rann/go/tmp",
-  "/home/rann/go/pkg/mod",
-]
+# Codex CLI 0.163.0+: workspace sandbox with writable Git metadata.
+[permissions.workspace-git]
+extends = ":workspace"
+
+[permissions.workspace-git.filesystem]
+"~/.cache/go-build" = "write"
+"~/go/tmp" = "write"
+"~/go/pkg/mod" = "write"
+
+[permissions.workspace-git.filesystem.":workspace_roots"]
+".git" = "write"
+
+[permissions.workspace-git.network]
+enabled = true
 
 [mcp_servers.fff]
 command = "fff-mcp"
