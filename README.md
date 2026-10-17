@@ -1,2 +1,2 @@
 # My dotfiles
-`./install.sh` or `install.ps1`
+`./install.sh` or `.\install.ps1`
