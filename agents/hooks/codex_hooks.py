@@ -21,16 +21,12 @@ def normalize(raw: dict) -> dict:
   event = dict(raw)
   event['sessionId'] = 'codex-' + str(raw.get('session_id') or '')
   tool = str(raw.get('tool_name') or '').removeprefix('mcp__')
-  terminal = tool in ('Bash', 'exec_command',
-    'desktop_commander__start_process', 'desktop-commander__start_process',
-    'desktop_commander__interact_with_process', 'desktop-commander__interact_with_process')
+  terminal = tool in ('Bash', 'exec_command')
   event['toolName'] = 'run_terminal_command' if terminal else tool
   if event['toolName'] == 'run_terminal_command':
     data = dict(tool_gate.input_of(event))
     if 'command' not in data and isinstance(data.get('cmd'), str):
       data['command'] = data['cmd']
-    if tool.endswith('__interact_with_process') and isinstance(data.get('input'), str):
-      data['command'] = data['input']
     event['tool_input'] = data
   return event
 
@@ -39,66 +35,6 @@ def patch_paths(command: str) -> list[str]:
   return re.findall(r'^\*\*\* (?:Update|Delete|Add) File: (.+)$', command, re.MULTILINE) + re.findall(
     r'^\*\*\* Move to: (.+)$', command, re.MULTILINE,
   )
-
-
-def successful(event: dict) -> bool:
-  response = event.get('tool_response')
-  if isinstance(response, dict):
-    return not (response.get('isError') or response.get('error'))
-  return True
-
-
-def desktop_interactive_shell(command: str) -> str:
-  invocation = re.fullmatch(r'[\'"]?([^\s\'"]+)[\'"]?(?:\s+(-[\w-]+))*', command.strip())
-  if invocation:
-    executable = invocation[1].replace('\\', '/').rsplit('/', 1)[-1].lower().removesuffix('.exe')
-    options = command.lower().split()[1:]
-    if executable in ('bash', 'sh', 'zsh', 'pwsh', 'powershell', 'cmd') and all(
-        option in ('-i', '-l', '--login', '--noprofile', '--norc', '-noprofile', '-nologo', '-noexit')
-        for option in options):
-      return executable
-  return ''
-
-
-def desktop_process_shells(event: dict, update: bool = False) -> dict:
-  # Session-scoped process identity is security metadata, not reader routing.
-  path = tool_gate.state_path(event['sessionId'], 'session', 'desktop-process-shells.json')
-  try:
-    shells = json.loads(path.read_text(encoding='utf-8'))
-    if not isinstance(shells, dict):
-      shells = {}
-    shells = {pid: shell for pid, shell in shells.items()
-      if isinstance(pid, str) and isinstance(shell, str)
-      and shell in ('', 'bash', 'sh', 'zsh', 'pwsh', 'powershell', 'cmd')}
-  except (OSError, ValueError):
-    shells = {}
-  if not update:
-    return shells
-  tool = str(event.get('tool_name') or '')
-  data = tool_gate.input_of(event)
-  if tool.endswith('__kill_process'):
-    shells.pop(str(data.get('pid')), None)
-  elif tool.endswith('__interact_with_process'):
-    shell = desktop_interactive_shell(str(data.get('input') or ''))
-    if not shell:
-      return shells
-    shells[str(data.get('pid'))] = shell
-  elif tool.endswith('__start_process'):
-    response = event.get('tool_response')
-    content = response.get('content', []) if isinstance(response, dict) else []
-    first = content[0] if isinstance(content, list) and content else {}
-    header = first.get('text', '') if isinstance(first, dict) else ''
-    if not isinstance(header, str):
-      return shells
-    started = re.match(r'\AProcess started with PID ([0-9]+) \(shell: [^\r\n]+\)(?:\r?\n|$)', header)
-    if not started:
-      return shells
-    # The launcher's shell can differ from the interactive process it starts.
-    shells[started[1]] = desktop_interactive_shell(str(data.get('command') or ''))
-  else:
-    return shells
-  path.write_text(json.dumps(shells), encoding='utf-8')
-  return shells
 
 
 def tool_policy(event: dict) -> dict:
@@ -110,10 +46,6 @@ def tool_policy(event: dict) -> dict:
       'Protected .env or PEM path. Use a redacted example file.'}
   if name == 'PreToolUse' and tool == 'run_terminal_command' and recursive_windows_delete(tool_gate.command_of(event)):
     return {'decision': 'deny', 'reason': 'Recursive Windows deletion is denied by the permission policy.'}
-  if name == 'PostToolUse' and not successful(event):
-    return {}
-  if name == 'PostToolUse' and re.match(r'^mcp__desktop[-_]commander__', str(event.get('tool_name') or '')):
-    desktop_process_shells(event, update=True)
   return {}
 
 
@@ -824,12 +756,7 @@ def secret_paths(event: dict, reasons: list[str] | None = None) -> bool:
     # Codex also labels native Windows PowerShell exec events as Bash and drops
     # the shell field. Use the host dialect there; Linux Bash stays Bash.
     shell = str(data.get('shell') or ('bash' if event.get('tool_name') == 'Bash' and os.name != 'nt' else ''))
-    if str(event.get('tool_name') or '').endswith('__interact_with_process'):
-      shell = desktop_process_shells(event).get(str(data.get('pid')), '')
-      candidates = (shell,) if shell else ('powershell', 'bash', 'cmd')
-    else:
-      candidates = (shell,)
-    if any(shell_secret_paths(tool_gate.command_of(event), candidate, reasons=reasons) for candidate in candidates):
+    if shell_secret_paths(tool_gate.command_of(event), shell, reasons=reasons):
       return True
   for path in paths:
     if not isinstance(path, str):

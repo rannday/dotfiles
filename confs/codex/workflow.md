@@ -1,6 +1,23 @@
 # Workflow details
 
-Read only the section needed for Go, WSL tests, hooks, or a skills audit.
+Read only the section needed for tool routing, Go, WSL tests, hooks, or a skills audit.
+
+## Tool routing
+
+Follow AGENTS.md's routing policy. Discover the actual MCP tool catalog first; these Filesystem MCP names and arguments were verified with the connected server and its official [tool documentation](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem#tools). Examples use `/absolute/project` as a placeholder; on Windows use an absolute path such as `C:/Users/rannd/Projects/dotfiles`. Paths must stay within allowed roots and the authorized workspace.
+
+- Known file: `read_text_file({path: "/absolute/project/src/main.py", head: 80})`; multiple known files: `read_multiple_files({paths: [...]})`.
+- Targeted edit: `edit_file({path: "/absolute/project/src/main.py", edits: [{oldText: "timeout = 10", newText: "timeout = 20"}], dryRun: true})`. Inspect the returned diff, then apply with `dryRun: false`. It supports targeted and multiline replacements; avoid full-file rewrites.
+- New file: `write_file({path: "/absolute/project/notes.txt", content: "Notes\n"})`. Full replacement of an existing file must be intentional.
+- Semantic change: use Serena's symbol/ref tools and suitable symbol-scoped editing; use gopls for Go renames and supported language-aware work.
+- Fallback: if `edit_file` is unavailable or cannot safely express the change, state that limitation and use native `apply_patch`. Do not replace a missing tool with an ad hoc shell/Python editing script.
+- Execution: run project build/test commands through shell, such as `go test ./...` or `python -m unittest discover -s agents/hooks`. Python tests, existing scripts, Python tooling, and required data processing remain valid Python work.
+
+Filesystem MCP also exposes `create_directory({path})`, `move_file({source, destination})`, `list_directory({path})`, `search_files({path, pattern, excludePatterns})`, and `get_file_info({path})`. Prefer fff for bounded repository discovery/text search. Use actual schemas; optional arguments may be omitted. No deletion tool is exposed by this server; use an authorized, narrowly bounded native fallback when needed.
+
+Both platform configs approve read-only tools and explicitly prompt for `edit_file`, `write_file`, `create_directory`, and `move_file`; unknown tools retain `prompt`. An edit preview also prompts because approval is per tool, not per `dryRun` argument. These settings use Codex's [MCP approval fields](https://developers.openai.com/codex/config-reference/). Approval does not exempt protected paths or widen workspace permissions. PreToolUse still covers `mcp__filesystem__.*` and checks path arguments, including both move endpoints. Executable heredocs remain subject to existing fail-closed checks.
+
+After an authorized installation, start a fresh Codex session on each platform. Check `/mcp`, `list_allowed_directories`, and hook trust through `/hooks`. In an authorized project under those roots, use a disposable fixture: read without approval; deny each `write_file`, `edit_file` (including `dryRun`), `create_directory`, and `move_file` request and confirm unchanged content/paths; then grant each request and verify the expected result. A preview must leave content unchanged. Check both move endpoints. Request protected `.env`/PEM targets only as synthetic hook events, never against real secrets; verify hook denial independently of approval. Repeat a small builder/investigator/reviewer task to check inherited routing and approval. Clean only the fixture. TOML parsing and direct MCP calls prove neither fresh-session approval prompts nor denial enforcement; record these checks as UNVERIFIED until exercised interactively.
 
 ## Go
 
@@ -26,13 +43,13 @@ Protected shell checks use token/path candidates and wildcard-language overlap, 
 
 Executable-input regression: a quoted `python3 - <<'PY'` heredoc editing ordinary Python fixtures was denied even without any protected filename. `shell_secret_paths` deliberately rejects unclassified heredocs; `tool_policy` incorrectly described every rejection as a detected secret path. Parser-limit rejections now report unresolved executable input or filesystem targets. A quoted delimiter prevents shell expansion, but does not make Python input inert. Computed Python paths and arbitrary interpreter code remain unsupported and denied; the minimal allow-case test is an explicit expected failure, not completed acceptance. Regression tests also cover nested parser-limit diagnostics, ordinary fixture/documentation writes with secret filename examples, and protected argument/redirection targets. Literal documentation write forms remain supported; this change grants no new command exemptions. General comments and quoted data arguments still lack full semantic classification.
 
-Codex PreToolUse checks protected paths and unsafe recursive Windows deletion. PostToolUse keeps Desktop Commander process metadata needed for interactive shell checks. Codex does not snapshot turns, run Stop validation, or invoke a review model.
+Codex PreToolUse checks protected paths and unsafe recursive Windows deletion. No Codex PostToolUse registration is needed. Codex does not snapshot turns, run Stop validation, or invoke a review model.
 
 Run formatting, targeted tests, and diagnostics explicitly for changed code before finishing. Keep formatter rewrites and inspect them. For Go, test/vet touched packages, test `./...` for module changes, and run diagnostics. Other stacks need their own checks. Report skipped checks.
 
 Grok registers snapshots, formatting, and tests. Antigravity implements these checks, but no shipped registration or installer enables them. Grok review lives in `grok_review.py`; no shipped hook registration invokes it. Hooks are limited guards: dynamic shell expressions, indirect paths, and unregistered tool forms may evade static checks. Native sandbox and approval boundaries remain necessary.
 
-Retained state: Codex session-scoped `desktop-process-shells.json` records interactive dialects until process kill; unknown or malformed entries fall back to conservative checks. Grok keeps turn snapshots. If invoked, Antigravity also writes snapshots, a session cursor, a same-diff test cache, and a bounded continuation record. These temporary files have no automatic expiry. Retired Codex snapshots, continuations, review caches, Go bookkeeping, and search counters are no longer written; old runtime files are left untouched.
+Retained state: Codex no longer records interactive process metadata; old runtime files are left untouched. Grok keeps turn snapshots. If invoked, Antigravity also writes snapshots, a session cursor, a same-diff test cache, and a bounded continuation record. These temporary files have no automatic expiry. Retired Codex snapshots, continuations, review caches, Go bookkeeping, and search counters are no longer written; old runtime files are left untouched.
 
 AGENTS.md owns routing, documentation lookup, delegation mappings, and completion reporting.
 

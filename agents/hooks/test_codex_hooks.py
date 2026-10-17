@@ -10,7 +10,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import codex_hooks
-import tool_gate
 
 
 def event(name='PreToolUse', tool='', **fields):
@@ -80,15 +79,6 @@ class CodexHooksTests(unittest.TestCase):
     with patch.dict(os.environ, {'TURN_END_CHILD': '1'}):
       result = codex_hooks.dispatch(event(tool='exec_command', tool_input={'cmd': 'cat .env'}))
     self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
-
-  def test_malformed_desktop_process_state_keeps_unknown_shell_guards(self):
-    state = tool_gate.state_path('codex-parent', 'session', 'desktop-process-shells.json')
-    for value in ([], None, True, 7, 'state', {'11': []}, {'11': None}, {'11': 7}, {'11': {}}):
-      with self.subTest(value=value):
-        state.write_text(json.dumps(value), encoding='utf-8')
-        result = self.policy(event(tool='mcp__desktop_commander__interact_with_process',
-          tool_input={'pid': 11, 'input': r"cat $'.en\x76'"}))
-        self.assertEqual(result['decision'], 'deny')
 
   def test_shell_reads_need_no_prior_mcp_call_or_project_marker(self):
     for command in ('Get-Content docs.txt', 'gc docs.txt', 'cat docs.txt',
@@ -239,10 +229,9 @@ class CodexHooksTests(unittest.TestCase):
       self.assertNotEqual(self.policy(event(tool=tool)).get('decision'), 'deny')
     self.assertFalse(list(Path(self.temp.name).rglob('fff-grep.count')))
 
-  def test_native_and_desktop_shell_routing_is_allowed_on_both_platforms(self):
+  def test_native_shell_routing_is_allowed_on_both_platforms(self):
     for shell in ('powershell', 'pwsh', 'bash', 'sh'):
-      for tool, key in (('exec_command', 'cmd'),
-          ('mcp__desktop_commander__start_process', 'command')):
+      for tool, key in (('exec_command', 'cmd'), ('Bash', 'command')):
         with self.subTest(shell=shell, tool=tool):
           self.assertNotEqual(self.policy(event(tool=tool,
             tool_input={key: 'git diff', 'shell': shell})).get('decision'), 'deny')
@@ -744,15 +733,14 @@ class CodexHooksTests(unittest.TestCase):
         self.assertNotEqual(self.shell_read(command,
           tool_input={'cmd': command, 'shell': 'pwsh'}).get('decision'), 'deny')
 
-  def test_powershell_parser_casts_allow_native_and_desktop_commands(self):
+  def test_powershell_parser_casts_allow_native_commands(self):
     command = ('$parseTokens = $null\n$parseErrors = $null\n'
       '[void][System.Management.Automation.Language.Parser]::ParseFile('
       "'modules/ssh.ps1', [ref]$parseTokens, [ref]$parseErrors)\n"
       'if ($parseErrors.Count -gt 0) { $parseErrors; exit 1 }\n'
       "Write-Output 'PowerShell syntax: passed'")
     for shell in ('powershell', 'pwsh'):
-      for tool, key in (('exec_command', 'cmd'),
-          ('mcp__desktop_commander__start_process', 'command')):
+      for tool, key in (('exec_command', 'cmd'), ('Bash', 'command')):
         with self.subTest(shell=shell, tool=tool):
           self.assertNotEqual(self.policy(event(tool=tool,
             tool_input={key: command, 'shell': shell})).get('decision'), 'deny')
@@ -1373,77 +1361,73 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
         self.assertNotEqual(self.shell_read(command,
           tool_input={'cmd': command, 'shell': shell}).get('decision'), 'deny')
 
-  def test_desktop_commander_secret_guard_is_wired_on_both_platforms(self):
+  def test_filesystem_guard_is_wired_on_both_platforms(self):
     root = Path(__file__).resolve().parents[2] / 'confs/codex'
     for platform in ('windows', 'linux'):
       config = json.loads((root / (platform + '.hooks.json')).read_text(encoding='utf-8'))
+      self.assertEqual(set(config['hooks']), {'PreToolUse'})
       guards = [entry for entry in config['hooks']['PreToolUse']
         if any('codex_hooks.py' in hook['command'] for hook in entry['hooks'])]
       self.assertEqual(len(guards), 1)
-      for tool in ('read_file', 'read_multiple_files', 'write_file', 'move_file'):
-        for server in ('desktop_commander', 'desktop-commander'):
-          self.assertRegex('mcp__' + server + '__' + tool, guards[0]['matcher'])
+      for tool in ('read_text_file', 'read_multiple_files', 'edit_file', 'write_file',
+          'create_directory', 'move_file', 'list_directory', 'get_file_info',
+          'search_files', 'future_tool'):
+        self.assertRegex('mcp__filesystem__' + tool, guards[0]['matcher'])
 
-  def test_desktop_commander_process_input_keeps_terminal_guards(self):
-    for command in ('Get-Content .env', 'Remove-Item cache -Recurse'):
-      for tool, data in (
-        ('start_process', {'command': command, 'timeout_ms': 1000}),
-        ('interact_with_process', {'pid': 1, 'input': command}),
-      ):
-        with self.subTest(command=command, tool=tool):
-          self.assertEqual(self.policy(event(tool='mcp__desktop_commander__' + tool,
+  def test_filesystem_paths_are_protected_in_both_path_dialects(self):
+    for root in ('/home/rann/project/', 'C:/Users/rannd/project/', 'C:\\Users\\rannd\\project\\'):
+      for name in ('.env', '.env.local', '.env.production', '.env.test.local', 'KEY.PEM'):
+        path = root + name
+        for tool in ('read_text_file', 'edit_file', 'write_file', 'create_directory',
+            'list_directory', 'get_file_info', 'search_files'):
+          with self.subTest(path=path, tool=tool):
+            data = {'path': path, 'content': 'public', 'edits': [], 'dryRun': True}
+            result = codex_hooks.dispatch(event(tool='mcp__filesystem__' + tool, tool_input=data))
+            self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
+        for data in ({'source': path, 'destination': root + 'safe.txt'},
+            {'source': root + 'safe.txt', 'destination': path},
+            {'paths': [root + 'safe.txt', path]}):
+          tool = 'read_multiple_files' if 'paths' in data else 'move_file'
+          self.assertEqual(self.policy(event(tool='mcp__filesystem__' + tool,
             tool_input=data)).get('decision'), 'deny')
-    for tool, data in (
-      ('start_process', {'command': 'git status', 'timeout_ms': 1000}),
-      ('interact_with_process', {'pid': 1, 'input': 'git status'}),
-    ):
-      self.assertNotEqual(self.policy(event(tool='mcp__desktop_commander__' + tool,
+
+  def test_filesystem_safe_operations_leave_approval_to_host(self):
+    operations = {
+      'read_text_file': {'path': '/project/docs.txt'},
+      'read_multiple_files': {'paths': ['/project/docs.txt', '/project/.env.example']},
+      'edit_file': {'path': '/project/main.py', 'edits': [{'oldText': 'a', 'newText': 'b'}]},
+      'write_file': {'path': '/project/new.txt', 'content': 'Example: .env and key.pem'},
+      'create_directory': {'path': '/project/new'},
+      'move_file': {'source': '/project/old.txt', 'destination': '/project/new.txt'},
+    }
+    for tool, data in operations.items():
+      with self.subTest(tool=tool):
+        self.assertEqual(self.policy(event(tool='mcp__filesystem__' + tool, tool_input=data)), {})
+    self.assertEqual(list(Path(self.temp.name).iterdir()), [])
+
+  def test_filesystem_malformed_arguments_do_not_crash_or_hide_valid_paths(self):
+    # MCP schemas reject missing/wrong types; the hook independently checks
+    # recognizable paths and never interprets content as a target.
+    for data in ({}, None, [], 'not json', 7, {'path': None}, {'path': 7},
+        {'path': {}}, {'paths': [None, 7, {}]}, {'unexpected': 'public'}):
+      for tool in ('read_text_file', 'edit_file', 'write_file', 'create_directory', 'move_file'):
+        with self.subTest(data=data, tool=tool):
+          self.assertEqual(self.policy(event(tool='mcp__filesystem__' + tool, tool_input=data)), {})
+    for data in ({'source': None, 'destination': '/project/.env'},
+        {'source': 'C:/project/key.pem', 'destination': {}},
+        {'paths': [None, {}, '/project/.env']},
+        {'path': '/project/.env', 'edits': 'malformed', 'unexpected': True}):
+      self.assertEqual(self.policy(event(tool='mcp__filesystem__move_file',
         tool_input=data)).get('decision'), 'deny')
 
-  def test_desktop_process_shell_identity_and_unknown_fallback(self):
-    def start(command, pid, **fields):
-      raw = event('PostToolUse', 'mcp__desktop_commander__start_process',
-        tool_input={'command': command, 'shell': 'powershell.exe'},
-        tool_response={'content': [{'type': 'text', 'text':
-          f'Process started with PID {pid} (shell: powershell.exe)\nInitial output:\n'}]})
-      raw.update(fields)
-      return self.policy(raw)
-    def interact(command, pid, **fields):
-      raw = event(tool='mcp__desktop_commander__interact_with_process',
-        tool_input={'pid': pid, 'input': command})
-      raw.update(fields)
-      return self.policy(raw)
-    start('bash', 10)
-    for command in (r"cat $'.en\x76'", r"cat $'key.pe\155'"):
-      self.assertEqual(interact(command, 10).get('decision'), 'deny')
-      self.assertEqual(interact(command, 999).get('decision'), 'deny')
-    start('pwsh -NoProfile', 11)
-    self.assertNotEqual(interact('Write-Output *', 11).get('decision'), 'deny')
-    self.assertEqual(interact('Get-Content "*.pem"', 11).get('decision'), 'deny')
-    self.policy(event('PostToolUse', 'mcp__desktop_commander__interact_with_process',
-      tool_input={'pid': 11, 'input': 'bash'}, tool_response={'content': []}))
-    self.assertEqual(interact(r"cat $'.en\x76'", 11).get('decision'), 'deny')
-    start('pwsh -NoProfile', 11)
-    self.assertEqual(interact('Write-Output *', 11, session_id='other').get('decision'), 'deny')
-    start('bash', 11, tool_response={'isError': True})
-    self.assertNotEqual(interact('Write-Output *', 11).get('decision'), 'deny')
-    self.policy(event('PostToolUse', 'mcp__desktop_commander__kill_process',
-      tool_input={'pid': 11}, tool_response={'content': []}))
-    self.assertEqual(interact('Write-Output *', 11).get('decision'), 'deny')
-    start('bash', 11)
-    self.assertEqual(interact('Write-Output *', 11).get('decision'), 'deny')
-    start('pwsh', 11, tool_response={'content': [{'type': 'text', 'text':
-      'Initial output:\nProcess started with PID 11 (shell: powershell.exe)'}]})
-    self.assertEqual(interact('Write-Output *', 11).get('decision'), 'deny')
-
-  def test_desktop_process_lifecycle_post_hooks_are_wired(self):
-    root = Path(__file__).resolve().parents[2] / 'confs/codex'
-    for platform in ('windows', 'linux'):
-      config = json.loads((root / (platform + '.hooks.json')).read_text(encoding='utf-8'))
-      matcher = config['hooks']['PostToolUse'][0]['matcher']
-      for server in ('desktop_commander', 'desktop-commander'):
-        for tool in ('start_process', 'interact_with_process', 'kill_process'):
-          self.assertRegex('mcp__' + server + '__' + tool, matcher)
+  def test_native_shell_encoded_paths_keep_terminal_guards(self):
+    for tool, key in (('exec_command', 'cmd'), ('Bash', 'command')):
+      for shell, command in (('bash', r"cat $'.en\x76'"),
+          ('bash', r"cat $'key.pe\155'"), ('pwsh', 'Get-Content "*.pem"'),
+          ('pwsh', 'Remove-Item cache -Recurse')):
+        with self.subTest(tool=tool, shell=shell, command=command):
+          self.assertEqual(self.policy(event(tool=tool,
+            tool_input={key: command, 'shell': shell})).get('decision'), 'deny')
 
 if __name__ == '__main__':
   unittest.main()

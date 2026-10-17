@@ -3,9 +3,10 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-import tomllib
 
+import tomllib
 import tool_gate
+
 
 def permission_list(text, name):
   marker = f'{name} = ['
@@ -69,20 +70,30 @@ class ToolGateTests(unittest.TestCase):
     root = Path(__file__).resolve().parents[2]
     for platform in ('linux', 'windows'):
       hooks = json.loads((root / 'confs/codex' / (platform + '.hooks.json')).read_text())['hooks']
-      self.assertEqual(set(hooks), {'PreToolUse', 'PostToolUse'})
-      self.assertIn('interact_with_process', hooks['PostToolUse'][0]['matcher'])
+      self.assertEqual(set(hooks), {'PreToolUse'})
+      self.assertRegex('mcp__filesystem__edit_file', hooks['PreToolUse'][0]['matcher'])
 
   def test_permission_parity_and_mutations_prompt(self):
     root = Path(__file__).resolve().parents[2] / 'confs/codex'
     configs = [tomllib.loads((root / (platform + '.config.toml')).read_text()) for platform in ('linux', 'windows')]
     def permissions(config):
       return {name: (server.get('default_tools_approval_mode'), server.get('tools', {}), server.get('disabled_tools', [])) for name, server in config['mcp_servers'].items()}
-    self.assertEqual(permissions(configs[0]), permissions(configs[1]))
+    linux, windows = map(permissions, configs)
+    self.assertEqual(windows.keys() - linux.keys(), {'kea'})
+    self.assertEqual(linux.keys() - windows.keys(), set())
+    self.assertEqual(linux, {name: windows[name] for name in linux})
+    self.assertEqual(windows['kea'][0], 'prompt')
     for config in configs:
       for name in ('filesystem', 'serena', 'git', 'fetch', 'github', 'gopls'):
         self.assertEqual(config['mcp_servers'][name]['default_tools_approval_mode'], 'prompt')
       self.assertEqual(config['mcp_servers']['git']['tools']['git_status']['approval_mode'], 'approve')
-      self.assertEqual(config['mcp_servers']['filesystem']['tools']['read_text_file']['approval_mode'], 'approve')
+      filesystem = config['mcp_servers']['filesystem']
+      for tool in ('read_file', 'read_text_file', 'read_media_file', 'read_multiple_files',
+          'list_directory', 'list_directory_with_sizes', 'directory_tree',
+          'search_files', 'get_file_info', 'list_allowed_directories'):
+        self.assertEqual(filesystem['tools'][tool]['approval_mode'], 'approve', tool)
+      for tool in ('edit_file', 'write_file', 'create_directory', 'move_file'):
+        self.assertEqual(filesystem['tools'][tool]['approval_mode'], 'prompt', tool)
       self.assertEqual(config['mcp_servers']['fetch']['args'], ['mcp-server-fetch'])
       self.assertIn('merge_pull_request', config['mcp_servers']['github']['http_headers']['X-MCP-Exclude-Tools'])
 

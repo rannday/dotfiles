@@ -12,8 +12,8 @@
 
 | Work | Preferred tool |
 |---|---|
-| Names and text / discovery / search | fff; short query, bounded matches |
-| Generic known-file reads and filesystem operations | Filesystem MCP; bounded reads, absolute paths |
+| Repository names and text / discovery / search | fff; short query, bounded matches |
+| Ordinary file reads, edits, creation, moves, listings, metadata, path search | Filesystem MCP; specific operations, absolute paths |
 | Semantic code structure, symbols, refs, refactors | Serena |
 | Go workspace, context, refs, rename, diagnostics, vulns | gopls; absolute paths |
 | Local Git | Git MCP; pass `repo_path` |
@@ -24,7 +24,13 @@
 
 Discover tools by exact MCP server prefix and relevant tool names; bound output and inspect only needed schemas. Avoid broad tool-description searches. Filesystem MCP is limited to configured user-home roots; use absolute paths and bounded reads. Avoid whole-file dumps. Real `.env` files, secret-bearing `.env` variants, and PEM paths stay unread and unedited. Public `.env.example` templates may be read and edited; never copy real secrets into them. If a preferred tool is unavailable, name it and use a bounded native alternative. Tool choice does not widen scope, permissions, or secret access. Use Git MCP with an explicit `repo_path` for local repository status, diffs, logs, and branches. Git mutations, merge, rebase, and restore require user authorization. Fetch MCP extracts web pages as Markdown; it can reach local/internal IP addresses, so use it only for intended public URLs.
 
-Serena's `read_file` remains available for semantic work; generic reads belong to Filesystem MCP. Prefer native editing for ordinary textual edits and native shell for builds, tests, and other commands, not default discovery/search/inspection. Mutating host actions require authorization.
+Filesystem MCP is the default for ordinary filesystem work, including source-file edits. Use the most specific available operation: `read_text_file` for known files, `read_multiple_files` for multiple known files, `edit_file` for targeted replacements, `write_file` for new files or intentional full replacements, `create_directory`, `move_file` for moves/renames, `list_directory`, `get_file_info`, and `search_files` for filesystem path searches. Keep fff first for bounded repository discovery and text search. Do not replace a whole existing file when a targeted edit suffices. Preview `edit_file` with `dryRun` when useful; discover actual schemas rather than assuming tool availability. Use absolute paths within configured roots and authorized workspace boundaries. Read approvals do not permit protected-file access; writes, directory creation, and moves prompt, including edit previews under the per-tool policy.
+
+Prefer Serena for symbol navigation, references, implementations, code structure, semantic refactoring, and suitable symbol-scoped changes. Serena's `read_file` remains available for semantic work; routine file operations belong to Filesystem MCP. Prefer language servers for supported diagnostics, references, renames, and refactors; do not substitute blind text replacement when semantic correctness matters.
+
+Native patch/edit tools are fallbacks when Filesystem MCP is unavailable, lacks an operation, cannot safely represent the edit, or a native patch is materially safer or more precise. Name the unavailable tool or explain the relevant limitation before falling back; do not silently switch to shell-generated editing scripts.
+
+Use shell for builds, tests, compilers, linters, formatters, existing project scripts, and legitimate CLI execution. Do not default to shell reads, redirection, `sed`, `awk`, `perl`, or similar source edits when Filesystem MCP can perform the operation. Python remains appropriate for Python tests, existing scripts, Python tooling, data processing, and operations that require Python. Do not generate ad hoc Python scripts or executable heredocs such as `python3 - <<'PY'` merely to edit ordinary source files. Tool routing never bypasses approval, sandbox, workspace, or protected-file rules. Mutating host actions require authorization.
 
 Serena starts from cwd with the custom `~/.codex/serena-context.yml` semantic context. Do not activate another project. Report missing `.serena/project.yml`; creation/onboarding and memory writes need authorization. `.go` renames stay on gopls.
 

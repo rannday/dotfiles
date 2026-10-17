@@ -120,7 +120,13 @@ default_tools_approval_mode = "prompt"
 command = "cmd"
 args = ["/c", "npx", "-y", "@modelcontextprotocol/server-filesystem", "C:/Users/rannd"]
 
+# Read-only tools are approved; mutations and unknown tools prompt.
 [mcp_servers.filesystem.tools]
+edit_file = { approval_mode = "prompt" }
+write_file = { approval_mode = "prompt" }
+create_directory = { approval_mode = "prompt" }
+move_file = { approval_mode = "prompt" }
+read_file = { approval_mode = "approve" }
 read_text_file = { approval_mode = "approve" }
 read_media_file = { approval_mode = "approve" }
 read_multiple_files = { approval_mode = "approve" }
