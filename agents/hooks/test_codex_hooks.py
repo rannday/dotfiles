@@ -275,6 +275,68 @@ class CodexHooksTests(unittest.TestCase):
       self.assertNotEqual(self.policy(event(tool='mcp__filesystem__' + tool,
         tool_input=data)).get('decision'), 'deny')
 
+  @unittest.expectedFailure
+  def test_python_fixture_heredoc_allowance_is_unresolved(self):
+    # Pending acceptance, not a passing safety proof: the parser cannot analyze Python.
+    # Inert, minimized capture: computed ordinary paths, no protected names.
+    command = ("python3 - <<'PY'\n"
+      "from pathlib import Path\n"
+      "for name in ('postgresql', 'mysql'):\n"
+      "    path = Path('tests') / (name + '.py')\n"
+      "    path.write_text(path.read_text().replace('old', 'new'))\n"
+      "PY\n")
+    self.assertEqual(self.policy(event(tool='exec_command',
+      tool_input={'cmd': command, 'shell': 'bash'})), {})
+
+  def test_unclassified_heredoc_reports_parser_limit_not_secret_detection(self):
+    for shell, command, fragment in (
+      ('bash', "python3 - <<'PY'\nprint('ordinary text')\nPY\n", 'here-document'),
+      ('pwsh', "@'\nordinary text\n'@ | Invoke-Expression", 'here-string'),
+      ('bash', 'bash -c "python3 - <<EOF\nprint(1)\nEOF\n"', 'here-document'),
+      ('bash', 'echo $(sh <<EOF\nprintf ordinary\nEOF\n)', 'here-document'),
+    ):
+      with self.subTest(shell=shell, command=command):
+        result = codex_hooks.dispatch(event(tool='exec_command',
+          tool_input={'cmd': command, 'shell': shell}))['hookSpecificOutput']
+        self.assertEqual(result['permissionDecision'], 'deny')
+        self.assertIn('Cannot safely classify', result['permissionDecisionReason'])
+        self.assertIn(fragment, result['permissionDecisionReason'])
+        self.assertNotIn('Protected .env or PEM path.', result['permissionDecisionReason'])
+
+  def test_fixture_and_documentation_data_do_not_select_protected_paths(self):
+    body = '# Examples only: .env and keys/example.pem\nvalue = ".env"\n'
+    for target in ('tests/postgresql.py', 'tests/mysql.py', 'docs/fixtures.md'):
+      with self.subTest(target=target):
+        for tool, data in (
+          ('mcp__filesystem__write_file', {'path': target, 'content': body}),
+          ('apply_patch', {'command': '*** Begin Patch\n*** Update File: ' + target
+            + '\n@@\n+' + body.replace('\n', '\n+') + '\n*** End Patch'}),
+          ('exec_command', {'shell': 'bash', 'cmd': "cat > " + target + " <<'PY'\n" + body + 'PY\n'}),
+        ):
+          self.assertEqual(self.policy(event(tool=tool, tool_input=data)), {})
+    # Consecutive literal writes retain both ordinary targets.
+    command = ''.join("cat > " + target + " <<'PY'\n" + body + 'PY\n'
+      for target in ('tests/postgresql.py', 'tests/mysql.py'))
+    self.assertEqual(self.policy(event(tool='exec_command',
+      tool_input={'shell': 'bash', 'cmd': command})), {})
+
+  def test_protected_targets_retain_denial_and_diagnostic(self):
+    targets = ('.env', '.env.seed', '.env.local', '.env.development',
+      '.env.production', '.env.test', '.env.dev.local', 'keys/example.pem')
+    for target in targets:
+      for command in (f'cat "{target}"', f'cat < "{target}"',
+          f'printf text > "{target}"', f'printf text >> "{target}"',
+          f'bash -c \'cat "{target}"\'', f'printf ordinary\ncat "{target}"'):
+        with self.subTest(target=target, command=command):
+          result = self.policy(event(tool='exec_command',
+            tool_input={'shell': 'bash', 'cmd': command}))
+          self.assertEqual(result['decision'], 'deny')
+          self.assertIn('Protected .env or PEM path.', result['reason'])
+    for command in ("cat '.en'v", r'cat .en\v', "cat 'keys/example.'pem"):
+      with self.subTest(command=command):
+        self.assertEqual(self.policy(event(tool='exec_command',
+          tool_input={'shell': 'bash', 'cmd': command}))['decision'], 'deny')
+
   def test_documentation_literal_writes(self):
     body = 'Sanitize .env\n```sh\ncat keys/example.pem\n```'
     commands = (

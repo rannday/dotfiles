@@ -104,8 +104,10 @@ def desktop_process_shells(event: dict, update: bool = False) -> dict:
 def tool_policy(event: dict) -> dict:
   name = event.get('hook_event_name')
   tool = event.get('toolName')
-  if name == 'PreToolUse' and secret_paths(event):
-    return {'decision': 'deny', 'reason': 'Protected .env or PEM path. Use a redacted example file.'}
+  reasons = []
+  if name == 'PreToolUse' and secret_paths(event, reasons):
+    return {'decision': 'deny', 'reason': reasons[0] if reasons else
+      'Protected .env or PEM path. Use a redacted example file.'}
   if name == 'PreToolUse' and tool == 'run_terminal_command' and recursive_windows_delete(tool_gate.command_of(event)):
     return {'decision': 'deny', 'reason': 'Recursive Windows deletion is denied by the permission policy.'}
   if name == 'PostToolUse' and not successful(event):
@@ -599,13 +601,16 @@ def literal_write_command(command: str, shell: str) -> str:
   return ''.join(writes) + command
 
 
-def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True) -> bool:
+def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True,
+    reasons: list[str] | None = None) -> bool:
   shell = shell.replace('\\', '/').rsplit('/', 1)[-1].lower().removesuffix('.exe')
   shell = shell or ('powershell' if os.name == 'nt' else 'sh')
   command = literal_write_command(command, shell)
   if shell in ('pwsh', 'powershell') and re.search(r'''@['"]\r?\n''', command):
     # An unclassified here-string can feed executable input (Invoke-Expression,
     # for example). The word lexer cannot establish its execution boundary.
+    if reasons is not None:
+      reasons.append('Cannot safely classify this here-string: executable input or filesystem targets are unresolved.')
     return True
   # The bounded lexer does not parse comments, here-documents or here-strings.
   # Their delimiters cannot prove an assignment is outside an expression.
@@ -620,9 +625,11 @@ def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True) -
       left == right and left[1] == '<' for left, right in pairwise(starts)):
     # Unsupported heredocs/here-strings may contain executable substitutions
     # even inside quote characters. Do not let the ordinary word lexer hide them.
+    if reasons is not None:
+      reasons.append('Cannot safely classify this here-document or here-string: executable input or filesystem targets are unresolved.')
     return True
   words = [word for word, _ in parsed]
-  if any(shell_secret_paths(body, shell, path_lists=False) for body in substitutions):
+  if any(shell_secret_paths(body, shell, path_lists=False, reasons=reasons) for body in substitutions):
     return True
   depth = 0
   for (begin, boundary), (end, following) in zip(starts, starts[1:] + [(len(words), '')]):
@@ -788,7 +795,7 @@ def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True) -
       payload = wsl_payload(words[index + 1:])
       if payload and not payload[1]:
         nested = ' '.join(payload[0])
-        if nested != command and shell_secret_paths(nested, 'sh', path_lists):
+        if nested != command and shell_secret_paths(nested, 'sh', path_lists, reasons):
           return True
       continue
     if executable not in switches:
@@ -797,13 +804,13 @@ def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True) -
       if words[offset].lower() in switches[executable]:
         payload = words[offset + 1:]
         nested = payload[0] if len(payload) == 1 else ' '.join(payload)
-        if nested != command and shell_secret_paths(nested, executable, path_lists):
+        if nested != command and shell_secret_paths(nested, executable, path_lists, reasons):
           return True
         break
   return False
 
 
-def secret_paths(event: dict) -> bool:
+def secret_paths(event: dict, reasons: list[str] | None = None) -> bool:
   data = tool_gate.input_of(event)
   paths = []
   for key in ('file_path', 'path', 'target_file', 'relative_path', 'file', 'paths', 'source', 'destination'):
@@ -822,7 +829,7 @@ def secret_paths(event: dict) -> bool:
       candidates = (shell,) if shell else ('powershell', 'bash', 'cmd')
     else:
       candidates = (shell,)
-    if any(shell_secret_paths(tool_gate.command_of(event), candidate) for candidate in candidates):
+    if any(shell_secret_paths(tool_gate.command_of(event), candidate, reasons=reasons) for candidate in candidates):
       return True
   for path in paths:
     if not isinstance(path, str):
