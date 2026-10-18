@@ -22,6 +22,7 @@ fast_mode = false
 shell_snapshot = true
 multi_agent = true
 memories = true
+prefer_mxc = true
 
 [shell_environment_policy]
 include_only = [
@@ -48,6 +49,8 @@ writable_roots = [
   'C:\Users\rannd\AppData\Local\go-build',
   'C:\Users\rannd\go\tmp',
   'C:\Users\rannd\go\pkg\mod',
+  'C:\Users\rannd\.cargo',
+  'C:\Users\rannd\.rustup',
 ]
 
 [mcp_servers.fff]
@@ -63,15 +66,15 @@ url = "https://mcp.context7.com/mcp"
 bearer_token_env_var = "CONTEXT7_API_KEY"
 default_tools_approval_mode = "approve"
 
-[mcp_servers.kea]
-default_tools_approval_mode = "prompt"
-command = 'C:\Users\rannd\AppData\Local\bin\kea-mcp.exe'
-startup_timeout_sec = 90
-tool_timeout_sec = 420
+#[mcp_servers.kea]
+#default_tools_approval_mode = "prompt"
+#command = 'C:\Users\rannd\AppData\Local\bin\kea-mcp.exe'
+#startup_timeout_sec = 90
+#tool_timeout_sec = 420
 
-[mcp_servers.kea.tools]
-kea_discover = { approval_mode = "approve" }
-kea_status_get = { approval_mode = "approve" }
+#[mcp_servers.kea.tools]
+#kea_discover = { approval_mode = "approve" }
+#kea_status_get = { approval_mode = "approve" }
 
 [mcp_servers.gopls]
 default_tools_approval_mode = "prompt"
