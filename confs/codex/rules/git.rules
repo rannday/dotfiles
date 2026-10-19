@@ -1,10 +1,13 @@
 # Safe reads use normal sandbox permissions. No blanket allow bypasses the sandbox.
-# Rules match command prefixes; global options and indirect shell forms still need
-# native approval review. GitKraken is preferred in AGENTS.md.
+# Git MCP is preferred in AGENTS.md; native Git fills missing capabilities.
+# Strictest matching decision wins: narrow allows cannot override prompts.
+# Branch/tag/worktree listings conservatively prompt: prefixes cannot restrict
+# trailing arguments. Global options, reordered flags, wrappers, and executable
+# paths may miss these rules; native review/sandbox checks remain necessary.
 prefix_rule(
-    pattern = [["git", "git.exe"], ["add", "rm", "mv", "checkout", "switch", "restore", "commit", "rebase", "merge", "reset", "stash", "fetch", "pull", "push", "clone", "tag", "worktree", "branch"]],
+    pattern = [["git", "git.exe"], ["add", "rm", "mv", "checkout", "switch", "restore", "commit", "rebase", "merge", "reset", "stash", "fetch", "pull", "push", "clone", "tag", "worktree", "branch", "bisect"]],
     decision = "prompt",
-    justification = "Git mutations require review; branch and tag listings share this prefix.",
+    justification = "Git mutations require review; branch, tag, and worktree listings share these prefixes.",
 )
 
 prefix_rule(

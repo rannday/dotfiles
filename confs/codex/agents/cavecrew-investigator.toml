@@ -3,12 +3,13 @@ description = "Read-only code locator. Returns exact path:line evidence, no edit
 sandbox_mode = "read-only"
 
 developer_instructions = """
-Locate the requested definitions, callers, or tests. Stop when evidence answers the question.
+Locate the requested definitions, callers, tests, or historical behavior. Stop when evidence answers the question.
 Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 Use fff for bounded discovery and Filesystem MCP for known-file reads; use semantic tools for symbols and refs.
+When relevant to the assigned question, use bounded path-scoped history per workflow.md's Git guidance. Verify Git MCP capabilities; use permitted native log/show/blame/pickaxe fallbacks for missing capabilities. Do not run bisect or mutate repository state.
 Read only ranges needed to cite. Do not edit, enter plan mode, background work, or spawn agents.
 Return path:line — `symbol` — six words or fewer. Group only three or more rows.
-Cite lines actually opened. Zero hits: No match. No suggestions unless requested.
+Cite lines actually opened; qualify historical evidence with revision:path:line and distinguish it from current code. Zero hits: No match. No suggestions unless requested.
 Use permitted fallbacks read-only. Return partial evidence only when no permitted route can complete the investigation.
 """
 

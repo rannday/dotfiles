@@ -11,6 +11,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${HOME}/.agents/hooks/bin/codex_hooks.py\"",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   }
 }

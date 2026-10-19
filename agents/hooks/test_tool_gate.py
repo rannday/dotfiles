@@ -66,11 +66,15 @@ class ToolGateTests(unittest.TestCase):
       commands = [hook['command'] for groups in hooks['hooks'].values() for group in groups for hook in group['hooks']]
       self.assertFalse(any('tool_gate.py' in command or ' review' in command or ' remind' in command for command in commands))
 
-  def test_codex_security_only_registrations(self):
+  def test_codex_security_and_readonly_stop_registrations(self):
     root = Path(__file__).resolve().parents[2]
     for platform in ('linux', 'windows'):
       hooks = json.loads((root / 'confs/codex' / (platform + '.hooks.json')).read_text())['hooks']
-      self.assertEqual(set(hooks), {'PreToolUse'})
+      self.assertEqual(set(hooks), {'PreToolUse', 'Stop'})
+      stop = hooks['Stop'][0]
+      self.assertNotIn('matcher', stop)
+      self.assertEqual(stop['hooks'][0]['command'], hooks['PreToolUse'][0]['hooks'][0]['command'])
+      self.assertEqual(stop['hooks'][0]['timeout'], 15)
       self.assertRegex('mcp__filesystem__edit_file', hooks['PreToolUse'][0]['matcher'])
 
   def test_permission_parity_and_mutations_prompt(self):
@@ -79,14 +83,17 @@ class ToolGateTests(unittest.TestCase):
     def permissions(config):
       return {name: (server.get('default_tools_approval_mode'), server.get('tools', {}), server.get('disabled_tools', [])) for name, server in config['mcp_servers'].items()}
     linux, windows = map(permissions, configs)
-    self.assertEqual(windows.keys() - linux.keys(), {'kea'})
-    self.assertEqual(linux.keys() - windows.keys(), set())
-    self.assertEqual(linux, {name: windows[name] for name in linux})
-    self.assertEqual(windows['kea'][0], 'prompt')
+    self.assertEqual(linux, windows)
     for config in configs:
       for name in ('filesystem', 'serena', 'git', 'fetch', 'github', 'gopls'):
         self.assertEqual(config['mcp_servers'][name]['default_tools_approval_mode'], 'prompt')
-      self.assertEqual(config['mcp_servers']['git']['tools']['git_status']['approval_mode'], 'approve')
+      git = config['mcp_servers']['git']
+      self.assertEqual(git['args'], ['mcp-server-git'])
+      for tool in ('git_status', 'git_diff_unstaged', 'git_diff_staged', 'git_diff',
+          'git_log', 'git_show', 'git_branch'):
+        self.assertEqual(git['tools'][tool]['approval_mode'], 'approve', tool)
+      for tool in ('git_add', 'git_commit', 'git_reset', 'git_create_branch', 'git_checkout'):
+        self.assertEqual(git['tools'][tool]['approval_mode'], 'prompt', tool)
       filesystem = config['mcp_servers']['filesystem']
       for tool in ('read_file', 'read_text_file', 'read_media_file', 'read_multiple_files',
           'list_directory', 'list_directory_with_sizes', 'directory_tree',

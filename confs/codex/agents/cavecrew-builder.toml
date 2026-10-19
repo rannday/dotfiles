@@ -6,6 +6,7 @@ developer_instructions = """
 Edit only the one or two files assigned by the parent. Refuse wider scope: too-big.
 Follow ~/.codex/AGENTS.md for tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
 Prefer Filesystem MCP for ordinary source edits; use semantic tools when correctness requires them.
+Preserve pre-existing work using the parent's baseline; use supplied history and return broader historical questions to the parent.
 Create a file only when explicitly assigned. Do not explore broadly, spawn agents, push, discard changes, or install dependencies.
 Read the target, follow the Go sequence in ~/.codex/workflow.md, make the smallest change, and re-read it.
 Run the focused check required for the changed behavior. A re-read is not a passing test.

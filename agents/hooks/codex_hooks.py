@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 from itertools import pairwise
 from pathlib import Path
@@ -716,6 +717,11 @@ def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True,
         selection = selection if raw == '@' or groups and groups[-1][1][3] else ''
   if any(protected_shell_word(pattern) for _, pattern in parsed):
     return True
+  # Git object operands use revision:path (also :stage:path for the index).
+  # Inspect the path separately so a root .env cannot hide behind its revision.
+  if (any(word.replace('\\', '/').rsplit('/', 1)[-1].lower().removesuffix('.exe') == 'git' for word in words)
+      and any(':' in pattern and protected_shell_word(pattern.rsplit(':', 1)[-1]) for _, pattern in parsed)):
+    return True
   switches = {
     'bash': ('-c', '-lc'), 'sh': ('-c', '-lc'), 'zsh': ('-c', '-lc'),
     'pwsh': ('-c', '-command'), 'powershell': ('-c', '-command'),
@@ -748,6 +754,11 @@ def secret_paths(event: dict, reasons: list[str] | None = None) -> bool:
   for key in ('file_path', 'path', 'target_file', 'relative_path', 'file', 'paths', 'source', 'destination'):
     value = data.get(key)
     paths.extend(value if isinstance(value, list) else [value])
+  revision_key = {'git__git_show': 'revision', 'git__git_diff': 'target'}.get(event.get('toolName'))
+  if revision_key:
+    revision = data.get(revision_key)
+    if isinstance(revision, str) and ':' in revision:
+      paths.append(revision.rsplit(':', 1)[-1])
   if event.get('toolName') == 'apply_patch':
     paths.extend(patch_paths(tool_gate.command_of(event)))
   elif event.get('toolName') == 'run_terminal_command':
@@ -766,8 +777,74 @@ def secret_paths(event: dict, reasons: list[str] | None = None) -> bool:
   return False
 
 
+def git_stop_check(raw: dict) -> dict:
+  """Warn about current tracked diffs; never attribute changes or continue a turn."""
+  warning = 'Git Stop check incomplete; run explicit completion validation.'
+  cwd = raw.get('cwd')
+  if not isinstance(cwd, str) or not Path(cwd).is_absolute():
+    return {'systemMessage': warning}
+  # Hooks run trusted commands, outside per-tool approval. Do not run Git filters,
+  # external diffs, textconv, fsmonitor, pagers, or inherited Git overrides.
+  env = {key: value for key, value in os.environ.items() if not key.upper().startswith('GIT_')}
+  git = ['git', '--no-pager', '--no-optional-locks',
+    '-c', 'core.fsmonitor=false']
+  def run(*args, capture=False):
+    return subprocess.run(git + list(args), cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+      stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
+      stderr=subprocess.DEVNULL, timeout=2, check=False)
+  try:
+    root = run('rev-parse', '--show-toplevel', capture=True)
+    if root.returncode == 128:
+      return {}  # Ordinary non-repository sessions need no Git diagnostic.
+    if root.returncode:
+      return {'systemMessage': warning}
+    cwd = os.fsdecode(root.stdout.rstrip(b'\r\n'))
+    filters = run('config', '--name-only', '--get-regexp', r'^filter\..*\.(clean|process)$')
+    if filters.returncode not in (0, 1):
+      return {'systemMessage': warning}
+    notes = []
+    for staged in (True, False):
+      label = 'staged' if staged else 'unstaged'
+      if not staged and filters.returncode == 0:
+        notes.append('unstaged check skipped because Git clean/process filters are configured')
+        continue
+      args = ['diff', '--no-ext-diff', '--no-textconv', '--no-renames',
+        '--ignore-submodules=all', '--no-relative']
+      if staged:
+        args.append('--cached')
+      # Exclude before diff enumeration too: even name-only diffs may read blobs.
+      exclusions = [':(top,exclude,icase,glob)**/.env*', ':(top,exclude,icase,glob)**/*.pem*']
+      names = run(*args, '--name-only', '-z', '--', '.', *exclusions, capture=True)
+      if names.returncode:
+        notes.append(f'{label} check unavailable')
+        continue
+      paths = [os.fsdecode(path) for path in names.stdout.split(b'\0') if path]
+      safe = [path for path in paths if not tool_gate.protected_path(path)
+        and not Path(path).name.lower().startswith('.env')]
+      if len(safe) != len(paths):
+        notes.append(f'{label} protected paths omitted')
+      # Keep Windows command lines and work bounded. No batching or snapshots.
+      if len(safe) > 128 or sum(len(path) for path in safe) > 8000:
+        notes.append(f'{label} check skipped: path limit exceeded')
+        continue
+      if safe:
+        checked = run(*args, '--check', '--', *(':(literal)' + path for path in safe))
+        if checked.returncode == 2:
+          notes.append(f'{label} diff has whitespace errors or conflict markers (may predate this task)')
+        elif checked.returncode:
+          notes.append(f'{label} check unavailable')
+    if notes:
+      return {'systemMessage': 'Git Stop check: ' + '; '.join(notes) +
+        '. No task-baseline comparison; explicit completion validation is still required.'}
+    return {}
+  except (OSError, ValueError, subprocess.TimeoutExpired):
+    return {'systemMessage': warning}
+
+
 def dispatch(raw: dict) -> dict:
   name = raw.get('hook_event_name')
+  if name == 'Stop':
+    return git_stop_check(raw)
   if name not in ('PreToolUse', 'PostToolUse'):
     return {}
   result = tool_policy(normalize(raw))

@@ -52,7 +52,7 @@ class CodexHooksTests(unittest.TestCase):
     self.assertEqual(list(Path(self.temp.name).iterdir()), [])
 
   def test_retired_lifecycle_events_are_quiet_and_stateless(self):
-    for name in ('UserPromptSubmit', 'Stop', 'SubagentStop'):
+    for name in ('UserPromptSubmit', 'SubagentStop'):
       with self.subTest(name=name), patch.object(codex_hooks, 'normalize', side_effect=AssertionError('unexpected normalization')):
         self.assertEqual(codex_hooks.dispatch(event(name, agent_id='child')), {})
     self.assertEqual(list(Path(self.temp.name).iterdir()), [])
@@ -129,6 +129,33 @@ class CodexHooksTests(unittest.TestCase):
   def test_bash_git_has_no_routing_block_in_codex_shape(self):
     result = codex_hooks.dispatch(event(tool='Bash', tool_input={'command': 'git -C repo diff'}))
     self.assertNotEqual(result.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
+
+  def test_git_history_fallback_preserves_secret_protection(self):
+    # Synthetic events only: no secret files are created or accessed.
+    for shell in ('bash', 'powershell'):
+      for command in ('git log -3 -- src/main.py', 'git blame -L 1,8 -- src/main.py',
+          'git show HEAD:src/main.py', 'git show HEAD:.env.example',
+          'git log -3 -S marker -- src/main.py', 'git worktree list'):
+        with self.subTest(shell=shell, command=command):
+          self.assertEqual(self.policy(event(tool='exec_command',
+            tool_input={'cmd': command, 'shell': shell})), {})
+      for command in ('git blame -- .env', 'git log -3 -- config/.env',
+          'git show HEAD:.env', 'git show :0:.env.local', 'git show HEAD:config/.env',
+          'git.exe -C fixture show HEAD:server.pem', 'git show HEAD:.env.*.local'):
+        with self.subTest(shell=shell, command=command):
+          result = codex_hooks.dispatch(event(tool='exec_command',
+            tool_input={'cmd': command, 'shell': shell}))
+          self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
+    for tool, key in (('git_show', 'revision'), ('git_diff', 'target')):
+      for revision in ('HEAD:.env', ':0:.env.local', 'HEAD:config/.env', 'HEAD:server.pem'):
+        with self.subTest(tool=tool, revision=revision):
+          self.assertEqual(self.policy(event(tool='mcp__git__' + tool,
+            tool_input={'repo_path': self.temp.name, key: revision}))['decision'], 'deny')
+      self.assertEqual(self.policy(event(tool='mcp__git__' + tool,
+        tool_input={'repo_path': self.temp.name, key: 'HEAD:.env.example'})), {})
+    for command in ('bash -c "git show HEAD:.env"', 'pwsh -Command "git show HEAD:.env"'):
+      with self.subTest(command=command):
+        self.assertEqual(self.shell_read(command)['decision'], 'deny')
 
   def test_exec_command_cmd_is_not_a_policy_bypass(self):
     for command in ('Get-Content .env', 'Get-Content secret.pem'):
@@ -1365,7 +1392,7 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
     root = Path(__file__).resolve().parents[2] / 'confs/codex'
     for platform in ('windows', 'linux'):
       config = json.loads((root / (platform + '.hooks.json')).read_text(encoding='utf-8'))
-      self.assertEqual(set(config['hooks']), {'PreToolUse'})
+      self.assertEqual(set(config['hooks']), {'PreToolUse', 'Stop'})
       guards = [entry for entry in config['hooks']['PreToolUse']
         if any('codex_hooks.py' in hook['command'] for hook in entry['hooks'])]
       self.assertEqual(len(guards), 1)
@@ -1428,6 +1455,109 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
         with self.subTest(tool=tool, shell=shell, command=command):
           self.assertEqual(self.policy(event(tool=tool,
             tool_input={key: command, 'shell': shell})).get('decision'), 'deny')
+
+
+@unittest.skipUnless(shutil.which('git'), 'git CLI is required for disposable repository checks')
+class GitStopTests(unittest.TestCase):
+  def setUp(self):
+    self.temp = tempfile.TemporaryDirectory()
+    self.addCleanup(self.temp.cleanup)
+    self.root = Path(self.temp.name)
+    # Do not inherit home Git configuration, credentials, or filters in fixtures.
+    self.env = patch.dict(os.environ, {'HOME': str(self.root), 'USERPROFILE': str(self.root),
+      'XDG_CONFIG_HOME': str(self.root)})
+    self.env.start()
+    self.addCleanup(self.env.stop)
+    native_run = subprocess.run
+    def isolated_run(command, **kwargs):
+      kwargs['env'] = dict(kwargs.get('env', os.environ), GIT_CONFIG_NOSYSTEM='1')
+      return native_run(command, **kwargs)
+    runner = patch.object(codex_hooks.subprocess, 'run', side_effect=isolated_run)
+    runner.start()
+    self.addCleanup(runner.stop)
+    self.git('init', '-q')
+    (self.root / 'ordinary.txt').write_text('staged trailing space \n', encoding='utf-8')
+    self.git('add', '--', 'ordinary.txt')
+    (self.root / 'ordinary.txt').write_text('unstaged trailing space \n', encoding='utf-8')
+    (self.root / 'untracked.txt').write_text('untracked \n', encoding='utf-8')
+
+  def git(self, *args):
+    return subprocess.run(['git', '-C', str(self.root), *args], check=True, capture_output=True)
+
+  def stop(self, **fields):
+    return codex_hooks.dispatch(event('Stop', cwd=str(self.root), **fields))
+
+  def test_warns_without_continuation_or_changes_to_existing_work(self):
+    before = {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
+    result = self.stop(stop_hook_active=True)
+    message = result['systemMessage']
+    self.assertIn('staged diff has whitespace', message)
+    self.assertIn('unstaged diff has whitespace', message)
+    self.assertIn('may predate this task', message)
+    self.assertEqual(set(result), {'systemMessage'})
+    after = {path.relative_to(self.root): path.read_bytes() for path in self.root.rglob('*') if path.is_file()}
+    self.assertEqual(after, before)
+
+  def test_protected_synthetic_files_are_excluded_before_enumeration(self):
+    (self.root / 'ordinary.txt').write_text('ordinary\n', encoding='utf-8', newline='\n')
+    self.git('add', '--', 'ordinary.txt')
+    for name in ('.env', '.env.secret', 'KEY.PEM'):
+      (self.root / name).write_text('synthetic fixture only \n', encoding='utf-8')
+      self.git('add', '--', name)
+      (self.root / name).write_text('synthetic changed fixture only \n', encoding='utf-8')
+    with patch.object(codex_hooks.subprocess, 'run', wraps=subprocess.run) as run:
+      self.assertEqual(self.stop(), {})
+    for call in run.call_args_list:
+      command = call.args[0]
+      if '--name-only' in command and 'diff' in command:
+        self.assertIn(':(top,exclude,icase,glob)**/.env*', command)
+        self.assertIn(':(top,exclude,icase,glob)**/*.pem*', command)
+      if '--check' in command:
+        self.assertEqual(command[command.index('--') + 1:], [':(literal)ordinary.txt'])
+
+  def test_clean_filters_are_not_executed_and_unstaged_check_is_skipped(self):
+    (self.root / '.gitattributes').write_text('ordinary.txt filter=unsafe\n', encoding='utf-8')
+    self.git('add', '--', '.gitattributes')
+    self.git('config', 'filter.unsafe.clean', 'echo forbidden > filter-ran')
+    result = self.stop()
+    self.assertIn('unstaged check skipped', result['systemMessage'])
+    self.assertIn('staged diff has whitespace', result['systemMessage'])
+    self.assertFalse((self.root / 'filter-ran').exists())
+
+  def test_git_overrides_and_external_diff_commands_are_not_used(self):
+    self.git('config', 'diff.external', 'echo forbidden > external-ran')
+    with patch.dict(os.environ, {'GIT_DIR': str(self.root / 'missing'), 'GIT_TRACE': '1'}), \
+      patch.object(codex_hooks.subprocess, 'run', wraps=subprocess.run) as run:
+      self.assertIn('diff has whitespace', self.stop()['systemMessage'])
+    for call in run.call_args_list:
+      self.assertFalse(any(key.upper().startswith('GIT_') for key in call.kwargs['env']))
+      self.assertIn('--no-optional-locks', call.args[0])
+      self.assertIn('core.fsmonitor=false', call.args[0])
+      if 'diff' in call.args[0]:
+        self.assertIn('--no-ext-diff', call.args[0])
+        self.assertIn('--no-textconv', call.args[0])
+    self.assertFalse((self.root / 'external-ran').exists())
+
+  def test_missing_git_timeout_and_invalid_cwd_report_incomplete_without_blocking(self):
+    for error in (FileNotFoundError('private detail'), subprocess.TimeoutExpired('git', 2)):
+      with self.subTest(error=type(error).__name__), \
+        patch.object(codex_hooks.subprocess, 'run', side_effect=error):
+        self.assertEqual(self.stop(), {'systemMessage':
+          'Git Stop check incomplete; run explicit completion validation.'})
+    self.assertIn('incomplete', codex_hooks.dispatch(event('Stop', cwd='relative'))['systemMessage'])
+    with patch.object(codex_hooks.subprocess, 'run', return_value=subprocess.CompletedProcess([], 128, b'')):
+      self.assertEqual(self.stop(), {})
+
+  def test_path_limit_skips_check_and_does_not_claim_success(self):
+    real_run = subprocess.run
+    def run(command, **kwargs):
+      if 'diff' in command and '--name-only' in command:
+        return subprocess.CompletedProcess(command, 0, b'ordinary.txt\0' * 129)
+      return real_run(command, **kwargs)
+    with patch.object(codex_hooks.subprocess, 'run', side_effect=run) as mocked:
+      result = self.stop()
+    self.assertIn('path limit exceeded', result['systemMessage'])
+    self.assertFalse(any('--check' in call.args[0] for call in mocked.call_args_list))
 
 if __name__ == '__main__':
   unittest.main()

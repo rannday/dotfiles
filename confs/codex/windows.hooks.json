@@ -11,6 +11,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import pathlib,runpy,sys;sys.path.insert(0,str(pathlib.Path.home()/'.agents/hooks/bin'));runpy.run_path(str(pathlib.Path.home()/'.agents/hooks/bin/codex_hooks.py'),run_name='__main__')\"",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   }
 }

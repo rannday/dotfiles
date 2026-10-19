@@ -3,7 +3,7 @@
 ## Work
 
 - Answer first. Read `~/.agents/skills/caveman/SKILL.md` once per session when available. Keep files normally formatted; Ultra/Wenyan only on request.
-- Keep edits within the task. Preserve layout and unrelated work. Inspect the worktree first. Generated files need an explicit request.
+- Keep edits within the task. Preserve layout and unrelated work. Generated files need an explicit request.
 - Honor authorization already given. Diagnose unknown failures, then continue an authorized fix. Ask only for missing scope or new permission.
 - No commit, push, history rewrite, discarded work, dependency install, or OS change without authorization. Approval review does not widen task scope.
 - Real `.env` files, secret-bearing `.env` variants, and PEM paths stay unread and unedited. Public `.env.example` templates may be read and edited; never copy real secrets into them. Request a redacted example when needed.
@@ -38,16 +38,24 @@ Use openaiDeveloperDocs for current OpenAI/Codex documentation: search, then fet
 
 GitHub reads must not duplicate this checkout. Confirm unauthorized remote writes; exclusions remain in config. Git MCP branch creation, checkout, stash, pull, and worktree changes need authorization; listing does not authorize mutation.
 
+Verify Git MCP capabilities before choosing a tool. Use native Git for unsupported operations or options: root/HEAD discovery, path-scoped history, blame, pickaxe, bisect, and worktree inspection. Name the missing capability; keep native approval, sandbox, and protected-path checks. Bisect needs a reliable reproducer and authorization for its repository changes; fetch also needs authorization.
+
 Before push, `git remote -v`. Use SSH aliases: `github.com-rannday`, `github.com-sggsa`, `github.com-varda`. Fix a wrong host with `git remote set-url`; never replace an alias with bare `github.com`.
 
 For Go changes, read the Go sequence in `~/.codex/workflow.md` once.
 
 For Linux/POSIX tests on Windows, read the WSL tests section in `~/.codex/workflow.md`. Use reviewed `require_escalated` calls with explicit Debian distro and workdir; keep PowerShell tests native.
 
+## Git task lifecycle
+
+- At task start, record repository root, branch (or detached HEAD), HEAD, staged/unstaged diffs, and untracked paths. Inspect relevant untracked content safely. Keep this baseline in task context; preserve pre-existing work without staging, stashing, or snapshots. Reuse it unless the repository or task changes; reconcile concurrent edits.
+- Before editing regressions, unfamiliar behavior, contracts, or potentially breaking changes, investigate bounded relevant history. Read the Git section of `~/.codex/workflow.md` for technique and policy limits. History is evidence; verify present behavior. Skip history for trivial changes.
+- Before finishing, inspect staged/unstaged diffs and relevant untracked files against the original baseline, separating pre-existing work from task edits. Check unrelated changes, unexpected deletions, and regressions. Validate explicitly; never infer a clean worktree or passing tests.
+
 ## Delegation and skills
 
 - Consider delegation for broad localization or an unsuccessful bounded search: `cavecrew-investigator`. Exact-file work and known facts stay inline.
-- Consider delegation for a known one/two-file edit: `cavecrew-builder`. Larger work stays with the parent. Assign disjoint file ownership; children never delegate.
+- Consider delegation for a known one/two-file edit: `cavecrew-builder`. Larger work stays with the parent. Assign disjoint file ownership and pass the relevant baseline/history; children never delegate. The parent owns broader history and final integration verification.
 - Requested bug scan: `cavecrew-reviewer` owns evidence and coverage; `caveman-review` only formats findings. PR/branch actions need their own authorization.
 - Use a named agent only if the spawn tool supports it; otherwise put its compact contract in the prompt.
 - Choose one primary workflow: `investigate-first`, `surgical-patch`, `lean-build`, `safe-refactor`, `migration`, or `verify-and-stop`. Read only the selected skill once; load supporting sections when needed. Switch at a phase change.
@@ -55,6 +63,7 @@ For Linux/POSIX tests on Windows, read the WSL tests section in `~/.codex/workfl
 - `caveman-commit` writes only the message; `caveman-compress` needs a named target and a working runner.
 - Cloud/learn/setup/optimization skills load only for an actual request and available CLI/account/report prerequisites. Do not wrap Codex in a proxy or invent credentials.
 - Short returns reduce parent context, not proven total cost. Measure parent plus child usage and acceptance; do not claim unmeasured savings.
+- For parallel tasks needing independent branches, builds, or overlapping files, consider isolated worktrees; see workflow.md. Preserve configured concurrency limits. Creation/removal, branch changes, and commits each need authorization; never provision them automatically.
 
 ## Finish
 
