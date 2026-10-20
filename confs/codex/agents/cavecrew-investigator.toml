@@ -1,4 +1,6 @@
 name = "cavecrew-investigator"
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
 description = "Read-only code locator. Returns exact path:line evidence, no edits or design."
 sandbox_mode = "read-only"
 

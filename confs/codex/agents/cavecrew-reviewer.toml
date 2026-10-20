@@ -1,4 +1,6 @@
 name = "cavecrew-reviewer"
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
 description = "Read-only correctness and regression review. Returns findings with exact evidence."
 sandbox_mode = "read-only"
 

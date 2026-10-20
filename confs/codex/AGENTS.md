@@ -54,12 +54,15 @@ For Linux/POSIX tests on Windows, read the WSL tests section in `~/.codex/workfl
 
 ## Delegation and skills
 
-- Consider delegation for broad localization or an unsuccessful bounded search: `cavecrew-investigator`. Exact-file work and known facts stay inline.
-- Consider delegation for a known one/two-file edit: `cavecrew-builder`. Larger work stays with the parent. Assign disjoint file ownership and pass the relevant baseline/history; children never delegate. The parent owns broader history and final integration verification.
-- Requested bug scan: `cavecrew-reviewer` owns evidence and coverage; `caveman-review` only formats findings. PR/branch actions need their own authorization.
-- Use a named agent only if the spawn tool supports it; otherwise put its compact contract in the prompt.
+- The primary session is the controller: own architecture, decomposition, shared contracts, ambiguous requirements, integration, and final decisions. Handle complex work directly and remain responsible for task completion.
+- Keep trivial tasks, known facts, and work where delegation overhead outweighs the benefit inline. Delegate useful bounded repository investigation to `cavecrew-investigator`; reuse existing findings and avoid redundant searches or agents.
+- Delegate straightforward one/two-file implementation to `cavecrew-builder` when scope, file ownership, and acceptance criteria are clear. Pass only relevant context, baseline/history, restrictions, and concise deliverables; children never delegate.
+- Take work back after two unsuccessful builder attempts, or immediately for architectural uncertainty, shared-contract changes, or unexpected security implications. Do not restart the attempt count with another worker.
+- Invoke `cavecrew-reviewer` for explicit review requests or significant correctness, security, concurrency, or contract risks. Require independent evidence and missing-verification reporting; preserve its findings format. `caveman-review` only formats findings. PR/branch actions need their own authorization.
+- Use the configured cavecrew model and reasoning settings. If a named agent or model is unavailable, report the blocker; never substitute an inherited or more expensive model silently. Delegation preserves all authorization, protected-file, MCP routing, sandbox, and tool-approval requirements.
+- Parallel delegation requires genuinely independent work with disjoint file ownership. Keep context minimal, request concise evidence or changed paths plus validation and uncertainties, and perform final integration verification yourself.
 - Choose one primary workflow: `investigate-first`, `surgical-patch`, `lean-build`, `safe-refactor`, `migration`, or `verify-and-stop`. Read only the selected skill once; load supporting sections when needed. Switch at a phase change.
-- In Codex, route `caveman-explore` to `cavecrew-investigator`, overriding shared skill references to Claude tools or `haiku`. Inherit the current model unless the user selects another. Other clients' skill behavior stays unchanged.
+- In Codex, route `caveman-explore` to `cavecrew-investigator`, overriding shared skill references to Claude tools or `haiku`. Use the investigator's configured model and reasoning effort. Other clients' skill behavior stays unchanged.
 - `caveman-commit` writes only the message; `caveman-compress` needs a named target and a working runner.
 - Cloud/learn/setup/optimization skills load only for an actual request and available CLI/account/report prerequisites. Do not wrap Codex in a proxy or invent credentials.
 - Short returns reduce parent context, not proven total cost. Measure parent plus child usage and acceptance; do not claim unmeasured savings.
