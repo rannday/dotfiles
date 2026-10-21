@@ -58,6 +58,15 @@ url = "https://mcp.context7.com/mcp"
 bearer_token_env_var = "CONTEXT7_API_KEY"
 default_tools_approval_mode = "approve"
 
+[mcp_servers.sqlite_logs]
+command = "uvx"
+args = [
+  "mcp-server-sqlite",
+  "--db-path",
+  "/home/rann/.codex/logs_2.sqlite",
+]
+enabled_tools = ["read_query", "list_tables", "describe_table"]
+
 [mcp_servers.gopls]
 default_tools_approval_mode = "prompt"
 command = "gopls"
