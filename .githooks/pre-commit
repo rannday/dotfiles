@@ -15,4 +15,3 @@ fi
 
 "$@" scripts/check-line-endings.py --staged
 "$@" scripts/check-line-endings.py --worktree
-
