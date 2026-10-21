@@ -141,6 +141,11 @@ function Install-SerenaConfig
     return
   }
 
+  if (-not $projects -and $sourceText -notmatch '(?m)^projects:')
+  {
+    $projects = 'projects: []'
+  }
+
   if ($projects -and -not (Select-String -LiteralPath $destination -Pattern '^projects:' -Quiet))
   {
     $text = [System.IO.File]::ReadAllText($destination)
@@ -152,7 +157,10 @@ function Install-SerenaConfig
     $text += $projects + "`n"
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($destination, $text, $utf8)
-    Write-Log "Kept registered Serena projects in $destination"
+    if ($projects -ne 'projects: []')
+    {
+      Write-Log "Kept registered Serena projects in $destination"
+    }
   }
 
   Write-Log "Serena config installed: $destination" 'Success'

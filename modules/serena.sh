@@ -110,9 +110,15 @@ install_serena_config() {
     return 0
   fi
 
+  if [ -z "$_serena_projects" ] && ! grep -q '^projects:' "$_serena_source"; then
+    _serena_projects='projects: []'
+  fi
+
   if [ -n "$_serena_projects" ] && ! grep -q '^projects:' "$_serena_dest"; then
     printf '\n%s\n' "$_serena_projects" >> "$_serena_dest"
-    log_info "Kept registered Serena projects in $_serena_dest"
+    if [ "$_serena_projects" != 'projects: []' ]; then
+      log_info "Kept registered Serena projects in $_serena_dest"
+    fi
   fi
 
   log_ok "Serena config installed: $_serena_dest"

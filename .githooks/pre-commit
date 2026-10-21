@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+version_check="import sys; sys.exit(sys.version_info < (3, 9))"
+if python3 -c "$version_check" >/dev/null 2>&1; then
+    set -- python3
+elif python -c "$version_check" >/dev/null 2>&1; then
+    set -- python
+elif py -3 -c "$version_check" >/dev/null 2>&1; then
+    set -- py -3
+else
+    echo "pre-commit: Python 3.9 or newer is required (python3, python, or py -3)." >&2
+    exit 1
+fi
+
+"$@" scripts/check-line-endings.py --staged
+"$@" scripts/check-line-endings.py --worktree
+
