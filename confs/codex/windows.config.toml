@@ -72,6 +72,7 @@ default_tools_approval_mode = "approve"
 [mcp_servers.sqlite_logs]
 command = "uvx"
 args = [
+  "--with", "mcp>=1.6.0,<2",
   "mcp-server-sqlite",
   "--db-path",
   "C:/Users/rannd/.codex/logs_2.sqlite",
