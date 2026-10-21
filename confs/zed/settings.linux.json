@@ -1,4 +1,5 @@
 {
+  "preferred_line_ending": "unix",
   "disable_ai": false,
   "vim_mode": false,
   "buffer_font_family": "Fira Code",

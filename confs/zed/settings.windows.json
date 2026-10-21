@@ -1,4 +1,5 @@
 {
+  "preferred_line_ending": "unix",
   "terminal": {
     "shell": {
       "program": "pwsh.exe"
