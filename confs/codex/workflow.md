@@ -21,6 +21,10 @@ After an authorized installation, start a fresh Codex session on each platform. 
 
 ## Git
 
+Never force-push, rebase published commits, or rewrite the history of main. Use ordinary commits and fast-forward pushes. If a push is rejected, stop and report the conflict instead of attempting to resolve it by rewriting history.
+
+These prohibitions apply to every tool and spelling, including `--force`, `-f`, `--force-with-lease`, `--mirror`, leading `+` refspecs, and equivalent API operations. Do not amend, reset, rebase, or otherwise replace commits already on main; add a corrective commit instead. Approval review or a request to commit/push does not override these prohibitions. After a rejected push, report the rejected ref and Git's error; do not retry with force or start automatic pull/rebase recovery.
+
 AGENTS.md owns the task baseline and final comparison. Keep baseline observations in task context, not generated files or Git snapshots. Git MCP remains first for supported status, diff, log, show, and branch queries with explicit `repo_path`; inspect its schema before assuming filters or options. Use native Git only for missing capabilities. GitHub MCP supplies remote issues, PRs, commits, and CI; it does not replace local checkout evidence.
 
 For native root/branch/HEAD discovery, use `git rev-parse --show-toplevel`, `git branch --show-current`, and `git rev-parse HEAD` (an empty branch means detached HEAD). For historical questions, start with a short path-scoped log, such as `git log -8 --oneline -- path`, then inspect a relevant `git show <commit> -- path` or historical diff. Use `git blame -L <start>,<end> -- path` for attribution, or bounded `git log -8 -S '<literal>' -- path` / `-G '<regex>'` for changed contracts. Scope by revision range when useful; expand only when the first evidence leaves the assigned question unresolved. Verify historical invariants, earlier fixes, validation, error/state handling, and regression tests against current code and requirements. An old behavior alone proves neither intent nor a present bug. Protected files remain inaccessible through revisions and history too.

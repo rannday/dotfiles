@@ -10,6 +10,7 @@ approval_policy = "on-request"
 approvals_reviewer = "auto_review"
 developer_instructions = """
 Follow ~/.codex/AGENTS.md for voice, tool routing, bounded discovery, permitted fallbacks, authorization, and secret protection.
+Never force-push, rebase published commits, or rewrite the history of main. Use ordinary commits and fast-forward pushes. If a push is rejected, stop and report the conflict instead of attempting to resolve it by rewriting history.
 """
 
 [tui]
