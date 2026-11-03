@@ -25,6 +25,7 @@ shell_snapshot = true
 multi_agent = true
 memories = true
 prefer_mxc = true
+suppress_unstable_features_warning = true
 
 [shell_environment_policy]
 include_only = [
@@ -250,12 +251,6 @@ trust_level = "trusted"
 [projects.'c:\users\rannd\projects\blockforge-manifest']
 trust_level = "trusted"
 
-[projects.'c:\users\rannd\projects\work\ssh-config']
-trust_level = "trusted"
-
-[projects.'c:\users\rannd\projects\work\cog']
-trust_level = "trusted"
-
 [projects.'c:\users\rannd\projects\varda\varda-modpack']
 trust_level = "trusted"
 
@@ -277,5 +272,20 @@ trust_level = "trusted"
 [projects.'c:\users\rannd\projects\kea-mcp']
 trust_level = "trusted"
 
-[projects.'/home/rann/Projects/kea-cb-commands']
+[projects.'c:\users\rannd\projects\kea-cb-commands']
+trust_level = "trusted"
+
+[projects.'c:\users\rannd\projects\work\ssh-config']
+trust_level = "trusted"
+
+[projects.'c:\users\rannd\projects\work\cog']
+trust_level = "trusted"
+
+[projects.'c:\users\rannd\projects\work\cable-dhcp']
+trust_level = "trusted"
+
+[projects.'c:\users\rannd\projects\work\cable-dhcp-testing']
+trust_level = "trusted"
+
+[projects.'c:\users\rannd\projects\work\ftth-dhcp']
 trust_level = "trusted"

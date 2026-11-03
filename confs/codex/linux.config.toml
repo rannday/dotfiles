@@ -229,12 +229,6 @@ trust_level = "trusted"
 [projects.'/home/rann/Projects/blockforge-manifest']
 trust_level = "trusted"
 
-[projects.'/home/rann/Projects/work/ssh-config']
-trust_level = "trusted"
-
-[projects.'/home/rann/Projects/work/cog']
-trust_level = "trusted"
-
 [projects.'/home/rann/Projects/varda/varda-modpack']
 trust_level = "trusted"
 
@@ -257,4 +251,19 @@ trust_level = "trusted"
 trust_level = "trusted"
 
 [projects.'/home/rann/Projects/kea-cb-commands']
+trust_level = "trusted"
+
+[projects.'/home/rann/Projects/work/ssh-config']
+trust_level = "trusted"
+
+[projects.'/home/rann/Projects/work/cog']
+trust_level = "trusted"
+
+[projects.'/home/rann/Projects/work/dhcp-cable']
+trust_level = "trusted"
+
+[projects.'/home/rann/Projects/work/dhcp-cable-testing']
+trust_level = "trusted"
+
+[projects.'/home/rann/Projects/work/dhcp-ftth']
 trust_level = "trusted"
