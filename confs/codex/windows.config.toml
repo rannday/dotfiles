@@ -128,10 +128,10 @@ find_declaration = { approval_mode = "approve" }
 find_implementations = { approval_mode = "approve" }
 get_diagnostics_for_file = { approval_mode = "approve" }
 
-#[mcp_servers.playwright]
-#default_tools_approval_mode = "prompt"
-#command = "npx"
-#args = ["-y", "@playwright/mcp@latest"]
+[mcp_servers.playwright]
+default_tools_approval_mode = "prompt"
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
 
 [mcp_servers.filesystem]
 default_tools_approval_mode = "prompt"
