@@ -4,7 +4,7 @@ if [ -r "$HOME/.env" ]; then
   set +a
 fi
 
-[ -r "$HOME/.config/codex/mcp-secrets.sh" ] && source "$HOME/.config/codex/mcp-secrets.sh"
+[ -r "$HOME/.config/secrets.sh" ] && source "$HOME/.config/secrets.sh"
 
 # Editors
 if type -P zed >/dev/null 2>&1; then
