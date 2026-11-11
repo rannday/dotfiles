@@ -1,5 +1,5 @@
-model = "gpt-6-astra"
-model_reasoning_effort = "high"
+model = "gpt-6.1-terra"
+model_reasoning_effort = "medium"
 model_verbosity = "low"
 model_auto_compact_token_limit = 80000
 tool_output_token_limit = 12000
@@ -45,7 +45,7 @@ sandbox = "elevated"
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 3
-default_subagent_model = "gpt-6-luna"
+default_subagent_model = "gpt-6.1-terra"
 default_subagent_reasoning_effort = "medium"
 
 [sandbox_workspace_write]

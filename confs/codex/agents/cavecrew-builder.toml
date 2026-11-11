@@ -1,5 +1,5 @@
 name = "cavecrew-builder"
-model = "gpt-6-luna"
+model = "gpt-6.1-terra"
 model_reasoning_effort = "medium"
 description = "Small edit of one or two known files. Returns changed paths and validation."
 sandbox_mode = "workspace-write"
