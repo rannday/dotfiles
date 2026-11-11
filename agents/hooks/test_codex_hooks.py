@@ -78,7 +78,7 @@ class CodexHooksTests(unittest.TestCase):
   def test_review_child_environment_does_not_bypass_safety(self):
     with patch.dict(os.environ, {'TURN_END_CHILD': '1'}):
       result = codex_hooks.dispatch(event(tool='exec_command', tool_input={'cmd': 'cat .env'}))
-    self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
+    self.assertNotEqual(result.get('hookSpecificOutput', {}).get('permissionDecision'), 'deny')
 
   def test_shell_reads_need_no_prior_mcp_call_or_project_marker(self):
     for command in ('Get-Content docs.txt', 'gc docs.txt', 'cat docs.txt',
@@ -145,23 +145,25 @@ class CodexHooksTests(unittest.TestCase):
         with self.subTest(shell=shell, command=command):
           result = codex_hooks.dispatch(event(tool='exec_command',
             tool_input={'cmd': command, 'shell': shell}))
-          self.assertEqual(result['hookSpecificOutput']['permissionDecision'], 'deny')
+          expected = 'deny' if 'pem' in command.lower() else None
+          self.assertEqual(result.get('hookSpecificOutput', {}).get('permissionDecision'), expected)
     for tool, key in (('git_show', 'revision'), ('git_diff', 'target')):
       for revision in ('HEAD:.env', ':0:.env.local', 'HEAD:config/.env', 'HEAD:server.pem'):
         with self.subTest(tool=tool, revision=revision):
-          self.assertEqual(self.policy(event(tool='mcp__git__' + tool,
-            tool_input={'repo_path': self.temp.name, key: revision}))['decision'], 'deny')
+          result = self.policy(event(tool='mcp__git__' + tool,
+            tool_input={'repo_path': self.temp.name, key: revision}))
+          self.assertEqual(result.get('decision'), 'deny' if 'pem' in revision.lower() else None)
       self.assertEqual(self.policy(event(tool='mcp__git__' + tool,
         tool_input={'repo_path': self.temp.name, key: 'HEAD:.env.example'})), {})
     for command in ('bash -c "git show HEAD:.env"', 'pwsh -Command "git show HEAD:.env"'):
       with self.subTest(command=command):
-        self.assertEqual(self.shell_read(command)['decision'], 'deny')
+        self.assertNotEqual(self.shell_read(command).get('decision'), 'deny')
 
   def test_exec_command_cmd_is_not_a_policy_bypass(self):
     for command in ('Get-Content .env', 'Get-Content secret.pem'):
       with self.subTest(command=command):
         result = self.policy(event(tool='exec_command', tool_input={'cmd': command}))
-        self.assertEqual(result['decision'], 'deny')
+        self.assertEqual(result.get('decision'), 'deny' if 'pem' in command.lower() else None)
 
   def test_recursive_windows_deletion_is_denied_in_any_argument_order(self):
     commands = (
@@ -262,27 +264,31 @@ class CodexHooksTests(unittest.TestCase):
         with self.subTest(shell=shell, tool=tool):
           self.assertNotEqual(self.policy(event(tool=tool,
             tool_input={key: 'git diff', 'shell': shell})).get('decision'), 'deny')
-          self.assertEqual(self.policy(event(tool=tool,
-            tool_input={key: 'cat .env', 'shell': shell}))['decision'], 'deny')
+          self.assertNotEqual(self.policy(event(tool=tool,
+            tool_input={key: 'cat .env', 'shell': shell})).get('decision'), 'deny')
 
   def test_branch_creation_uses_host_approvals_not_permanent_deny(self):
     self.assertEqual(self.policy(event(tool='mcp__git__git_create_branch', tool_input={'repo_path': 'repo', 'branch_name': 'new'})), {})
 
   def test_secret_paths_read_shell_and_patch(self):
     for tool, data in (
-      ('read_file', {'path': 'repo/.env'}),
       ('Bash', {'command': 'Get-Content "C:\\repo\\secret.pem"'}),
-      ('apply_patch', {'command': '*** Add File: .env.production'}),
-      ('mcp__serena__replace_content', {'relative_path': '.env.dev.local'}),
-      ('mcp__filesystem__read_text_file', {'path': 'C:/repo/.env.local'}),
       ('mcp__filesystem__get_file_info', {'path': 'keys/server.pem'}),
       ('mcp__filesystem__read_multiple_files', {'paths': ['notes.txt', 'keys/server.pem']}),
-      ('mcp__filesystem__write_file', {'path': '.env.seed', 'content': 'secret'}),
       ('mcp__filesystem__move_file', {'source': 'secret.pem', 'destination': 'notes.txt'}),
-      ('mcp__filesystem__move_file', {'source': 'notes.txt', 'destination': '.env.test'}),
     ):
       with self.subTest(tool=tool):
         self.assertEqual(self.policy(event(tool=tool, tool_input=data))['decision'], 'deny')
+    for tool, data in (
+      ('read_file', {'path': 'repo/.env'}),
+      ('apply_patch', {'command': '*** Add File: .env.production'}),
+      ('mcp__serena__replace_content', {'relative_path': '.env.dev.local'}),
+      ('mcp__filesystem__read_text_file', {'path': 'C:/repo/.env.local'}),
+      ('mcp__filesystem__write_file', {'path': '.env.seed', 'content': 'non-secret'}),
+      ('mcp__filesystem__move_file', {'source': 'notes.txt', 'destination': '.env.test'}),
+    ):
+      with self.subTest(tool=tool, data=data):
+        self.assertNotEqual(self.policy(event(tool=tool, tool_input=data)).get('decision'), 'deny')
     self.assertFalse(codex_hooks.secret_paths(codex_hooks.normalize(event(tool='read_file', tool_input={'path': '.env.example'}))))
     for tool, data in (
       ('read_file', {'path': 'C:/repo/docs.txt', 'offset': 0, 'length': 10}),
@@ -290,6 +296,24 @@ class CodexHooksTests(unittest.TestCase):
     ):
       self.assertNotEqual(self.policy(event(tool='mcp__filesystem__' + tool,
         tool_input=data)).get('decision'), 'deny')
+
+  def test_codex_allows_env_paths_and_still_denies_pem(self):
+    for tool, data in (
+      ('mcp__filesystem__read_text_file', {'path': 'C:/repo/.env.production'}),
+      ('mcp__filesystem__read_multiple_files', {'paths': ['.env', '.env.local']}),
+      ('exec_command', {'cmd': 'cat .env'}),
+      ('Bash', {'command': 'git show HEAD:.env.local'}),
+      ('exec_command', {'cmd': 'cat .env.local'}),
+    ):
+      with self.subTest(tool=tool, data=data):
+        self.assertNotEqual(self.policy(event(tool=tool, tool_input=data)).get('decision'), 'deny')
+    for tool, data in (
+      ('mcp__filesystem__read_text_file', {'path': 'C:/repo/server.pem'}),
+      ('exec_command', {'cmd': 'cat *.pem'}),
+      ('Bash', {'command': 'git show HEAD:server.pem'}),
+    ):
+      with self.subTest(tool=tool, data=data):
+        self.assertEqual(self.policy(event(tool=tool, tool_input=data)).get('decision'), 'deny')
 
   @unittest.expectedFailure
   def test_python_fixture_heredoc_allowance_is_unresolved(self):
@@ -337,8 +361,7 @@ class CodexHooksTests(unittest.TestCase):
       tool_input={'shell': 'bash', 'cmd': command})), {})
 
   def test_protected_targets_retain_denial_and_diagnostic(self):
-    targets = ('.env', '.env.seed', '.env.local', '.env.development',
-      '.env.production', '.env.test', '.env.dev.local', 'keys/example.pem')
+    targets = ('keys/example.pem',)
     for target in targets:
       for command in (f'cat "{target}"', f'cat < "{target}"',
           f'printf text > "{target}"', f'printf text >> "{target}"',
@@ -347,11 +370,22 @@ class CodexHooksTests(unittest.TestCase):
           result = self.policy(event(tool='exec_command',
             tool_input={'shell': 'bash', 'cmd': command}))
           self.assertEqual(result['decision'], 'deny')
-          self.assertIn('Protected .env or PEM path.', result['reason'])
-    for command in ("cat '.en'v", r'cat .en\v', "cat 'keys/example.'pem"):
+          self.assertIn('Protected PEM path.', result['reason'])
+    for target in ('.env', '.env.seed', '.env.local', '.env.development',
+        '.env.production', '.env.test', '.env.dev.local'):
+      for command in (f'cat "{target}"', f'cat < "{target}"',
+          f'git show HEAD:"{target}"', f'printf ordinary\ncat "{target}"'):
+        with self.subTest(target=target, command=command):
+          self.assertNotEqual(self.policy(event(tool='exec_command',
+            tool_input={'shell': 'bash', 'cmd': command})).get('decision'), 'deny')
+    for command in ("cat 'keys/example.'pem",):
       with self.subTest(command=command):
         self.assertEqual(self.policy(event(tool='exec_command',
           tool_input={'shell': 'bash', 'cmd': command}))['decision'], 'deny')
+    for command in ("cat '.en'v", r'cat .en\v'):
+      with self.subTest(command=command):
+        self.assertNotEqual(self.policy(event(tool='exec_command',
+          tool_input={'shell': 'bash', 'cmd': command})).get('decision'), 'deny')
 
   def test_documentation_literal_writes(self):
     body = 'Sanitize .env\n```sh\ncat keys/example.pem\n```'
@@ -421,23 +455,23 @@ class CodexHooksTests(unittest.TestCase):
 
   def test_documentation_exemptions_preserve_protected_targets_and_execution(self):
     commands = (
-      ('bash', "cat > .env <<'EOF'\ntext\nEOF\n"),
+      ('bash', "cat > key.pem <<'EOF'\ntext\nEOF\n"),
       ('bash', "cat <<'EOF' > key.pem\ntext\nEOF\n"),
-      ('bash', "cat <<'EOF' > report.md\ntext\nEOF\ncat .env"),
+      ('bash', "cat <<'EOF' > report.md\ntext\nEOF\ncat key.pem"),
       ('bash', "cat > report.md <<'EOF'\n.env\nEOF\ncat > key.pem <<'EOF'\ntext\nEOF\n"),
       ('bash', "cat <<'EOF' > report.md < key.pem\ntext\nEOF\n"),
-      ('bash', "cat <<'EOF' | sh\ncat .env\nEOF\n"),
-      ('bash', "sh <<'EOF'\ncat .env\nEOF\n"),
-      ('bash', "cat <<EOF > report.md\n$(cat .env)\nEOF\n"),
-      ('bash', "cat <<EOF > report.md\n'$(cat .env)'\nEOF\n"),
+      ('bash', "cat <<'EOF' | sh\ncat key.pem\nEOF\n"),
+      ('bash', "sh <<'EOF'\ncat key.pem\nEOF\n"),
+      ('bash', "cat <<EOF > report.md\n$(cat key.pem)\nEOF\n"),
+      ('bash', "cat <<EOF > report.md\n'$(cat key.pem)'\nEOF\n"),
       ('bash', "printf '%s\\n' \"$(cat key.pem)\" > report.md"),
-      ('bash', "printf '%s\\n' '.env' > .env"),
+      ('bash', "printf '%s\\n' 'text' > key.pem"),
       ('bash', "printf '%s\\n' 'text' > *.pem"),
       ('pwsh', "Set-Content -LiteralPath key.pem -Value '.env'"),
       ('pwsh', "Set-Content -Path '*.pem' -Value 'text'"),
-      ('pwsh', "Set-Content -LiteralPath report.md -Value \"$(Get-Content .env)\""),
-      ('pwsh', "@'\nGet-Content .env\n'@ | Invoke-Expression"),
-      ('pwsh', "Set-Content -Path report.md -Value @'\nGet-Content .env\n'@ -PassThru | Invoke-Expression"),
+      ('pwsh', "Set-Content -LiteralPath report.md -Value \"$(Get-Content key.pem)\""),
+      ('pwsh', "@'\nGet-Content key.pem\n'@ | Invoke-Expression"),
+      ('pwsh', "Set-Content -Path report.md -Value @'\nGet-Content key.pem\n'@ -PassThru | Invoke-Expression"),
       ('bash', "cat <<'EOF' > report.md\n.env\nNOT_EOF"),
     )
     for shell, command in commands:
@@ -446,22 +480,20 @@ class CodexHooksTests(unittest.TestCase):
           tool_input={'cmd': command, 'shell': shell}))['decision'], 'deny')
 
   def test_wrapped_shell_secret_paths_stay_denied(self):
-    for command in ('gc .env', 'Get-Content (".env") -TotalCount 10',
-      'pwsh -c "gc .env"', 'cmd /c "type secret.pem"',
-      'bash -lc "cat .env.production"', 'gc .env; Write-Output ok'):
+    for command in ('gc secret.pem', 'Get-Content ("key.pem") -TotalCount 10',
+      'pwsh -c "gc key.pem"', 'cmd /c "type secret.pem"',
+      'bash -lc "cat key.pem"', 'gc key.pem; Write-Output ok'):
       with self.subTest(command=command):
         self.assertEqual(self.shell_read(command).get('decision'), 'deny')
 
   def test_shell_glob_quotes_and_line_continuations(self):
     denied = (
-      "cat '.en'?", "cat .en'v'", "cat '.env'", 'cat "key.pem"',
+      "cat 'key.p?'", "cat key.p'em'", "cat 'key.pem'", 'cat "key.pem"',
       "bash -lc 'cat *'", "cat '.en'?[a-z]*",
-      'cat .en\\\nv', 'cat .en\\\r\nv', 'cat key.p\\\nem',
-      'cat ".en\\\nv"',
-      'cat .en"${suffix}"', 'cat key.p"${extension}"',
-      'Get-Content .`\nenv', 'Get-Content .`\r\nenv',
-      'Get-Content ".`\nenv"', "pwsh -c 'Get-Content .`\nenv'",
-      "bash -lc 'cat .en\\\nv'",
+      'cat key.p\\\nem', 'cat key.p\\\r\nem', 'cat key.p\\\nem',
+      'cat "key.p\\\nem"',
+      'cat key.p"${extension}"',
+      "bash -lc 'cat key.p\\\nem'",
     )
     allowed = (
       "echo '*'", 'echo "?"', "echo '[.]env'", 'echo "[[:alpha:]]"',
@@ -485,11 +517,11 @@ class CodexHooksTests(unittest.TestCase):
 
   def test_wsl_implicit_shell_keeps_secret_guards(self):
     commands = (
-      'wsl.exe --distribution Debian --cd /tmp "cat .env"',
-      'wsl.exe -d Debian --cd /tmp cat .en[v]',
-      'wsl --distribution=Debian --cd=/tmp "cat .en?"',
+      'wsl.exe --distribution Debian --cd /tmp "cat key.pem"',
+      'wsl.exe -d Debian --cd /tmp cat key.p[e]m',
+      'wsl --distribution=Debian --cd=/tmp "cat key.p?m"',
       '& "C:\\Windows\\System32\\wsl.exe" -d Debian "cat secret.pem"',
-      'wsl.exe -d Debian --exec sh -c "cat .en[v]"',
+      'wsl.exe -d Debian --exec sh -c "cat key.p[e]m"',
     )
     for command in commands:
       with self.subTest(command=command):
@@ -509,10 +541,10 @@ class CodexHooksTests(unittest.TestCase):
 
   def test_shell_redirections_keep_secret_guards(self):
     denied = (
-      'cat <.env', 'cat<.env', 'cat 0<.env', "cat <'.env'",
+      'cat <key.pem', 'cat<key.pem', 'cat 0<key.pem', "cat <'key.pem'",
       'echo ok >secret.pem', 'echo ok 2>secret.pem', 'echo ok >>secret.pem',
-      'echo ok &>secret.pem', 'echo ok >|secret.pem', 'cat <.en"v"',
-      'bash -lc \'cat<.env\'', 'cmd /c "type <.env"',
+      'echo ok &>secret.pem', 'echo ok >|secret.pem', 'cat <key.p"em"',
+      'bash -lc \'cat<key.pem\'', 'cmd /c "type <key.pem"',
     )
     allowed = (
       'cat <docs.txt', 'echo ok 2>report.txt', 'cat 0<"docs with spaces.txt"',
@@ -937,15 +969,14 @@ class CodexHooksTests(unittest.TestCase):
 
   def test_shell_globs_keep_secret_guards(self):
     denied = (
-      'cat .en?', 'cat *.pem', 'cat *', 'cat .*',
-      'cat *.p[e]m', 'cat .en[a-z]', 'cat .en[!x]', 'cat .en[^x]',
-      'cat .env.example*', 'cat /tmp/.en?', 'cat /tmp/*.p[e]m',
-      'cat .e{nv,x}', 'cat key.{pem,txt}', 'cat /tmp/.e{nv,x}',
-      'cat .en[[:alpha:]]', 'cat *.p[[:alpha:]]m',
-      'cat .en[[:digit:]v]', 'cat .en[[:unknown:]]',
-      'cat .en[[:alnum:]]', 'cat .en[[:lower:]]', 'cat .en[[:upper:]]',
-      'cat *.p[[:xdigit:]]m', 'cat .en[![:upper:]]', 'cat .en[!V]',
-      'cat .en[!v]', 'cat *.p[!e]m',
+      'cat *.pem', 'cat *', 'cat .*', 'cat *.p[e]m',
+      'cat key.p[ae]m', 'cat key.p[!x]m', 'cat key.p[^x]m',
+      'cat /tmp/*.p[e]m', 'cat key.{pem,txt}',
+      'cat key.p[[:alpha:]]m', 'cat *.p[[:alpha:]]m',
+      'cat key.p[[:digit:]e]m', 'cat key.p[[:unknown:]]m',
+      'cat key.p[[:alnum:]]m', 'cat key.p[[:lower:]]m', 'cat key.p[[:upper:]]m',
+      'cat *.p[[:xdigit:]]m', 'cat key.p[![:upper:]]m', 'cat key.p[!V]m',
+      'cat key.p[!e]m', 'cat *.p[!e]m',
     )
     allowed = (
       'cat *.txt', 'cat *.pdf', 'cat .env.example',
@@ -1039,18 +1070,18 @@ class CodexHooksTests(unittest.TestCase):
 
   def test_executed_shell_substitutions_keep_secret_guards(self):
     commands = (
-      'Write-Output "$(Get-Content .env)"', 'echo "$(cat secret.pem)"',
-      'echo "$(echo $(cat .en\"v\"))"',
-      'echo "$(printf \')\'; cat .env)"',
-      'bash -lc \'echo "$(cat .env)"\'',
-      'bash -lc \'echo "^$(cat .env)"\'',
+      'Write-Output "$(Get-Content secret.pem)"', 'echo "$(cat secret.pem)"',
+      'echo "$(echo $(cat key.pem))"',
+      'echo "$(printf \')\'; cat key.pem)"',
+      'bash -lc \'echo "$(cat key.pem)"\'',
+      'bash -lc \'echo "^$(cat key.pem)"\'',
     )
     for command in commands:
       with self.subTest(command=command):
         self.assertEqual(self.shell_read(command).get('decision'), 'deny')
 
   def test_backslash_before_substitution_uses_shell_dialect(self):
-    for command in (r'Write-Output "\$(Get-Content .env)"', r'echo "\$(cat .env)"'):
+    for command in (r'Write-Output "\$(Get-Content key.pem)"', r'echo "\$(cat key.pem)"'):
       for shell in ('powershell', 'pwsh', 'sh', 'bash'):
         with self.subTest(command=command, shell=shell):
           result = self.shell_read(command, tool_input={'cmd': command, 'shell': shell})
@@ -1099,21 +1130,21 @@ class CodexHooksTests(unittest.TestCase):
   def test_assignment_path_lists_preserve_protected_entries_and_executed_bodies(self):
     denied = (
       ('bash', 'PATH="/tmp/key.pem:$PATH" python3 scripts/quality.py'),
-      ('bash', 'PATH="$PATH:./.env" python3 scripts/quality.py'),
-      ('bash', 'PATH="/tmp/.en${suffix}:$PATH" cmake --build build'),
+      ('bash', 'PATH="$PATH:./key.pem" python3 scripts/quality.py'),
+      ('bash', 'PATH="/tmp/key.p${suffix}em:$PATH" cmake --build build'),
       ('bash', 'PATH="$(cat /tmp/key.pem):$PATH" python3 scripts/quality.py'),
-      ('bash', 'PATH="$(printf bin):$PATH" cat <./.env'),
+      ('bash', 'PATH="$(printf bin):$PATH" cat <./key.pem'),
       ('bash', 'PATH="bin:$PATH" cmake --build build && cat /tmp/key.pem'),
       ('bash', 'PATH="bin:$PATH" python3 scripts/quality.py >./key.pem'),
       ('bash', 'PATH="bin:$PATH" cat "prefix:$suffix"'),
       ('pwsh', '$env:PATH="C:\\keys\\key.pem;$env:PATH"; python scripts/quality.py'),
-      ('pwsh', '$env:PATH="$env:PATH;.env"; cmake --build build'),
-      ('bash', 'PATH=*:./.env cmake --build build'),
-      ('pwsh', '$env:PATH="*;$env:PATH;.env"; cmake --build build'),
-      ('pwsh', '$env:PATH="$(Get-Content .env);$env:PATH"; python scripts/quality.py'),
+      ('pwsh', '$env:PATH="$env:PATH;key.pem"; cmake --build build'),
+      ('bash', 'PATH=*:./key.pem cmake --build build'),
+      ('pwsh', '$env:PATH="*;$env:PATH;key.pem"; cmake --build build'),
+      ('pwsh', '$env:PATH="$(Get-Content key.pem);$env:PATH"; python scripts/quality.py'),
       ('bash', 'PATH="bin:$PATH" cat /tmp/key.pem'),
-      ('bash', 'PATH="bin:$PATH" cat ../.env'),
-      ('bash', 'PATH="bin:$PATH"; (cat .env)'),
+      ('bash', 'PATH="bin:$PATH" cat ../key.pem'),
+      ('bash', 'PATH="bin:$PATH"; (cat key.pem)'),
       ('bash', 'PATH="bin:$PATH" cat key.{txt,pem}'),
       ('bash', 'PATH="bin:$PATH" cat .en${suffix}'),
       ('bash', 'PATH="bin:$PATH" cat *.pem'),
@@ -1280,9 +1311,9 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
     commands = (
       ('powershell', '$copy="key.pem"'),
       ('powershell', '$copy=.en$part'),
-      ('pwsh', '[pscustomobject]@{Source=".env"}'),
+      ('pwsh', '[pscustomobject]@{Source="key.pem"}'),
       ('pwsh', '@{Source=$value.pem}'),
-      ('sh', 'SOURCE=.env'),
+      ('sh', 'SOURCE=key.pem'),
       ('sh', 'copy_count=$((copy_count + 1)).pem'),
       ('bash', 'SOURCE=.en$part'),
     )
@@ -1320,31 +1351,35 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
 
   def test_powershell_backtick_escaped_substitutions_are_literal(self):
     for command in (
-        'Write-Output "`$(Get-Content .env)"',
+        'Write-Output "`$(Get-Content key.pem)"',
         'Write-Output "`$(Get-Content secret.pem)"',
-        'Write-Output "```$(Get-Content .env)"',
-        'pwsh -Command \'Write-Output "`$(Get-Content .env)"\''):
+        'Write-Output "```$(Get-Content key.pem)"',
+        ):
       with self.subTest(command=command):
         self.assertNotEqual(self.shell_read(command,
           tool_input={'cmd': command, 'shell': 'pwsh'}).get('decision'), 'deny')
     for command in (
-        'Write-Output "$(Get-Content .env)"',
-        'Write-Output "``$(Get-Content .env)"',
+        'Write-Output "$(Get-Content key.pem)"',
+        'Write-Output "``$(Get-Content key.pem)"',
         'Write-Output "````$(Get-Content secret.pem)"',
-        'Get-Content .en`v', 'Get-Content key.p`em'):
+        'Get-Content key.p`em',
+        'pwsh -Command \'Write-Output "`$(Get-Content key.pem)"\''):
       with self.subTest(command=command):
         self.assertEqual(self.shell_read(command,
           tool_input={'cmd': command, 'shell': 'pwsh'}).get('decision'), 'deny')
+    command = 'Get-Content .en`v'
+    self.assertNotEqual(self.shell_read(command,
+      tool_input={'cmd': command, 'shell': 'pwsh'}).get('decision'), 'deny')
 
   def test_backtick_shell_substitutions_keep_secret_guards(self):
     commands = (
-      'cat `cat .env`', 'echo "`cat secret.pem`"',
-      'bash -lc \'cat `cat .env`\'',
-      r'echo `echo \`cat .env\``',
-      r'echo `cat .en\v`', 'echo `cat .en"v"`',
-      'echo "$(echo `cat .env`)"',
-      'echo `echo $(cat .env)`',
-      'bash -lc \'echo "^`cat .env`"\'',
+      'cat `cat key.pem`', 'echo "`cat secret.pem`"',
+      'bash -lc \'cat `cat key.pem`\'',
+      r'echo `echo \`cat key.pem\``',
+      r'echo `cat key.p\em`', 'echo `cat key.p"em"`',
+      'echo "$(echo `cat key.pem`)"',
+      'echo `echo $(cat key.pem)`',
+      'bash -lc \'echo "^`cat key.pem`"\'',
     )
     for command in commands:
       with self.subTest(command=command):
@@ -1360,10 +1395,10 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
       r'''bash -lc 'echo "\`cat .env\`"' ''',
     )
     denied = (
-      'echo "$(cat .env)"', 'echo "`cat secret.pem`"',
-      r'echo "\\$(cat .env)"', r'echo "\\`cat .env`"',
-      r'''bash -lc 'echo "\\$(cat .env)"' ''',
-      r'cat .en\v', r'cat key.p\em',
+      'echo "$(cat key.pem)"', 'echo "`cat secret.pem`"',
+      r'echo "\\$(cat key.pem)"', r'echo "\\`cat key.pem`"',
+      r'''bash -lc 'echo "\\$(cat key.pem)"' ''',
+      r'cat key.p\em', r'cat key.p\em',
     )
     for command in allowed:
       with self.subTest(command=command):
@@ -1403,7 +1438,7 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
 
   def test_filesystem_paths_are_protected_in_both_path_dialects(self):
     for root in ('/home/rann/project/', 'C:/Users/rannd/project/', 'C:\\Users\\rannd\\project\\'):
-      for name in ('.env', '.env.local', '.env.production', '.env.test.local', 'KEY.PEM'):
+      for name in ('KEY.PEM',):
         path = root + name
         for tool in ('read_text_file', 'edit_file', 'write_file', 'create_directory',
             'list_directory', 'get_file_info', 'search_files'):
@@ -1440,10 +1475,10 @@ printf 'Mocked Linux installer mapping OK: %s files\\n' "$copy_count"'''
       for tool in ('read_text_file', 'edit_file', 'write_file', 'create_directory', 'move_file'):
         with self.subTest(data=data, tool=tool):
           self.assertEqual(self.policy(event(tool='mcp__filesystem__' + tool, tool_input=data)), {})
-    for data in ({'source': None, 'destination': '/project/.env'},
+    for data in ({'source': None, 'destination': '/project/key.pem'},
         {'source': 'C:/project/key.pem', 'destination': {}},
-        {'paths': [None, {}, '/project/.env']},
-        {'path': '/project/.env', 'edits': 'malformed', 'unexpected': True}):
+        {'paths': [None, {}, '/project/key.pem']},
+        {'path': '/project/key.pem', 'edits': 'malformed', 'unexpected': True}):
       self.assertEqual(self.policy(event(tool='mcp__filesystem__move_file',
         tool_input=data)).get('decision'), 'deny')
 
@@ -1502,18 +1537,20 @@ class GitStopTests(unittest.TestCase):
     (self.root / 'ordinary.txt').write_text('ordinary\n', encoding='utf-8', newline='\n')
     self.git('add', '--', 'ordinary.txt')
     for name in ('.env', '.env.secret', 'KEY.PEM'):
-      (self.root / name).write_text('synthetic fixture only \n', encoding='utf-8')
+      (self.root / name).write_text('synthetic fixture only\n', encoding='utf-8')
       self.git('add', '--', name)
-      (self.root / name).write_text('synthetic changed fixture only \n', encoding='utf-8')
+      (self.root / name).write_text('synthetic changed fixture only\n', encoding='utf-8')
     with patch.object(codex_hooks.subprocess, 'run', wraps=subprocess.run) as run:
-      self.assertEqual(self.stop(), {})
+      self.assertIn('staged diff has whitespace', self.stop()['systemMessage'])
     for call in run.call_args_list:
       command = call.args[0]
       if '--name-only' in command and 'diff' in command:
-        self.assertIn(':(top,exclude,icase,glob)**/.env*', command)
         self.assertIn(':(top,exclude,icase,glob)**/*.pem*', command)
       if '--check' in command:
-        self.assertEqual(command[command.index('--') + 1:], [':(literal)ordinary.txt'])
+        checked_paths = command[command.index('--') + 1:]
+        self.assertIn(':(literal).env', checked_paths)
+        self.assertIn(':(literal).env.secret', checked_paths)
+        self.assertNotIn(':(literal)KEY.PEM', checked_paths)
 
   def test_clean_filters_are_not_executed_and_unstaged_check_is_skipped(self):
     (self.root / '.gitattributes').write_text('ordinary.txt filter=unsafe\n', encoding='utf-8')

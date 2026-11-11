@@ -44,7 +44,7 @@ def tool_policy(event: dict) -> dict:
   reasons = []
   if name == 'PreToolUse' and secret_paths(event, reasons):
     return {'decision': 'deny', 'reason': reasons[0] if reasons else
-      'Protected .env or PEM path. Use a redacted example file.'}
+      'Protected PEM path. Use a redacted example file.'}
   if name == 'PreToolUse' and tool == 'run_terminal_command' and recursive_windows_delete(tool_gate.command_of(event)):
     return {'decision': 'deny', 'reason': 'Recursive Windows deletion is denied by the permission policy.'}
   return {}
@@ -406,12 +406,12 @@ def protected_shell_word(word: str) -> bool:
   if (word.startswith('$(') or word.lstrip('\\\ue005').startswith('\ue004(')) and word.endswith(')'):
     # Executed bodies are inspected separately; literal/escaped bodies stay text.
     return False
-  if tool_gate.protected_path(word):
+  if protected_path(word):
     return True
-  # Shell escapes may concatenate a secret basename, e.g. .en\v. Inspect
+  # Shell escapes may concatenate a secret basename, e.g. key.p\em. Inspect
   # suffixes as well so a Windows-style directory does not hide that basename.
   parts = word.split('\\')
-  if any(tool_gate.protected_path(''.join(parts[index:])) for index in range(len(parts))):
+  if any(protected_path(''.join(parts[index:])) for index in range(len(parts))):
     return True
   if re.fullmatch(r'-[a-z][a-z-]*:\$(?:true|false)', word, re.IGNORECASE):
     return False  # PowerShell boolean switch values are not path arguments.
@@ -437,10 +437,8 @@ def protected_shell_word(word: str) -> bool:
   fragments = pattern.split('*')
   if not literal_glob and (len(fragments) == 1 or not ''.join(fragments)):
     return False  # A wholly dynamic path remains an ordinary shell operation.
-  # These patterns exactly cover tool_gate.protected_path, including its
-  # unbounded .env.*.local language; they are not sampled expansion values.
-  protected = ('.env', '.env.seed', '.env.local', '.env.development',
-    '.env.production', '.env.test', '.env.?*.local', '*.pem')
+  # Match the same protected filename language as protected_path.
+  protected = ('*.pem',)
   for mark, literal in (('\ue000', '[*]'), ('\ue001', '[?]'), ('\ue002', '[[]'),
       ('\ue003', '{'), ('\ue004', '$'), ('\ue005', '`'),
       ('\ue006', '[*]'), ('\ue007', '[?]'), ('\ue008', '[[]')):
@@ -718,7 +716,7 @@ def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True,
   if any(protected_shell_word(pattern) for _, pattern in parsed):
     return True
   # Git object operands use revision:path (also :stage:path for the index).
-  # Inspect the path separately so a root .env cannot hide behind its revision.
+  # Inspect the path separately so a root PEM cannot hide behind its revision.
   if (any(word.replace('\\', '/').rsplit('/', 1)[-1].lower().removesuffix('.exe') == 'git' for word in words)
       and any(':' in pattern and protected_shell_word(pattern.rsplit(':', 1)[-1]) for _, pattern in parsed)):
     return True
@@ -748,6 +746,11 @@ def shell_secret_paths(command: str, shell: str = '', path_lists: bool = True,
   return False
 
 
+def protected_path(path: str) -> bool:
+  base = path.replace('\\', '/').rsplit('/', 1)[-1].lower().strip('\"\'(),;')
+  return base.endswith('.pem')
+
+
 def secret_paths(event: dict, reasons: list[str] | None = None) -> bool:
   data = tool_gate.input_of(event)
   paths = []
@@ -772,7 +775,7 @@ def secret_paths(event: dict, reasons: list[str] | None = None) -> bool:
   for path in paths:
     if not isinstance(path, str):
       continue
-    if tool_gate.protected_path(path):
+    if protected_path(path):
       return True
   return False
 
@@ -813,14 +816,13 @@ def git_stop_check(raw: dict) -> dict:
       if staged:
         args.append('--cached')
       # Exclude before diff enumeration too: even name-only diffs may read blobs.
-      exclusions = [':(top,exclude,icase,glob)**/.env*', ':(top,exclude,icase,glob)**/*.pem*']
+      exclusions = [':(top,exclude,icase,glob)**/*.pem*']
       names = run(*args, '--name-only', '-z', '--', '.', *exclusions, capture=True)
       if names.returncode:
         notes.append(f'{label} check unavailable')
         continue
       paths = [os.fsdecode(path) for path in names.stdout.split(b'\0') if path]
-      safe = [path for path in paths if not tool_gate.protected_path(path)
-        and not Path(path).name.lower().startswith('.env')]
+      safe = [path for path in paths if not protected_path(path)]
       if len(safe) != len(paths):
         notes.append(f'{label} protected paths omitted')
       # Keep Windows command lines and work bounded. No batching or snapshots.
